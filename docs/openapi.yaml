@@ -1,0 +1,2610 @@
+openapi: 3.1.0
+info:
+  title: Callgraph API
+  version: 1.0.0-draft
+  description: |
+    Draft REST contract for the first delivery phase (GA-9).
+    All identifiers are strings. Dates and timestamps use ISO 8601 with an explicit timezone.
+    List endpoints use `page` and `per_page`; `size` is intentionally not supported.
+
+    Fields forbidden by the current role are omitted from `data` and listed in
+    `meta.hidden_fields`. The same restrictions apply to filtering, sorting and exports.
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development
+  - url: /api/v1
+    description: Current origin
+security:
+  - bearerAuth: []
+tags:
+  - name: System
+  - name: Auth
+  - name: References
+  - name: Dashboard
+  - name: Calls
+  - name: Matching
+  - name: Leads
+  - name: Analytics
+  - name: Finance
+  - name: Notifications
+  - name: Settings
+  - name: Events
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      operationId: getHealth
+      summary: Check API dependencies
+      security:
+        - serviceKey: []
+      responses:
+        '200':
+          description: Service health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /version:
+    get:
+      tags: [System]
+      operationId: getVersion
+      summary: Get deployed build version
+      security: []
+      responses:
+        '200':
+          description: Build version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: getCurrentUser
+      summary: Get current user, role and effective permissions
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /references/{dictionary}:
+    get:
+      tags: [References]
+      operationId: listReferenceItems
+      summary: Get a filter dictionary
+      description: |
+        Supported dictionaries: accounts, sites, campaigns, ad-groups, keywords, ads,
+        services, cities, districts, operators and masters. Dependent dictionaries are
+        filtered by the applicable parent identifiers.
+      parameters:
+        - name: dictionary
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [accounts, sites, campaigns, ad-groups, keywords, ads, services, cities, districts, operators, masters]
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/SiteId'
+        - $ref: '#/components/parameters/CampaignId'
+        - $ref: '#/components/parameters/AdGroupId'
+        - name: city_id
+          in: query
+          required: false
+          schema: { type: string }
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Dictionary values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferenceListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /dashboard/overview:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardOverview
+      summary: Get KPI cards, metric strip and funnel
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+      responses:
+        '200':
+          description: Dashboard overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardOverviewResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard/sites:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardSites
+      summary: Get site performance table
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Site performance page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteMetricListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard/alerts:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardAlerts
+      summary: Get recent dashboard alerts
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Alert page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /dashboard/exports:
+    post:
+      tags: [Dashboard]
+      operationId: createDashboardExport
+      summary: Queue a dashboard export
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/ExportAccepted'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /calls:
+    get:
+      tags: [Calls]
+      operationId: listCalls
+      summary: Get calls
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/SiteId'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/CallStatus' }
+        - name: operator_id
+          in: query
+          schema: { type: string }
+        - name: confidence
+          in: query
+          schema: { $ref: '#/components/schemas/ConfidenceCategory' }
+        - name: is_repeat
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: sort
+          in: query
+          schema: { type: string, enum: [started_at, talk_duration_seconds], default: started_at }
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Call page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /calls/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Calls]
+      operationId: getCall
+      summary: Get call details
+      responses:
+        '200':
+          description: Call details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallDetailsResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /calls/{id}/recording:
+    get:
+      tags: [Calls]
+      operationId: getCallRecording
+      summary: Get a short-lived recording URL
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Recording URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /calls/bulk-actions:
+    post:
+      tags: [Calls]
+      operationId: applyCallBulkAction
+      summary: Apply an action to selected calls
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallBulkActionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/BulkActionCompleted'
+        default:
+          $ref: '#/components/responses/Error'
+  /calls/exports:
+    post:
+      tags: [Calls]
+      operationId: createCallsExport
+      summary: Queue a role-filtered calls export
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/ExportAccepted'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /matching/review:
+    get:
+      tags: [Matching]
+      operationId: listMatchingReview
+      summary: Get calls requiring manual review
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/SiteId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: sort
+          in: query
+          schema: { type: string, enum: [score, started_at], default: score }
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Review queue page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchingListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /matching/unattributed:
+    get:
+      tags: [Matching]
+      operationId: listUnattributedCalls
+      summary: Get calls without an attributed source
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/SiteId'
+        - name: reason
+          in: query
+          schema: { $ref: '#/components/schemas/UnattributedReason' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Unattributed call page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchingListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /phone-clicks:
+    get:
+      tags: [Matching]
+      operationId: listPhoneClicks
+      summary: Get tracked phone-number clicks
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - $ref: '#/components/parameters/SiteId'
+        - name: linked
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Phone click page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneClickListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /calls/{id}/matching-candidates:
+    get:
+      tags: [Matching]
+      operationId: getMatchingCandidates
+      summary: Get ranked matching candidates and score explanations
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Matching candidates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchingCandidatesResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /calls/{id}/matching-decision:
+    put:
+      tags: [Matching]
+      operationId: saveMatchingDecision
+      summary: Save an idempotent manual matching decision
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchingDecisionRequest'
+      responses:
+        '200':
+          description: Saved matching decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchingDecisionResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /matching/recalculate:
+    post:
+      tags: [Matching]
+      operationId: createMatchingRecalculation
+      summary: Queue matching recalculation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecalculationRequest'
+      responses:
+        '202':
+          description: Recalculation accepted or existing active job returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecalculationResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /matching/recalculate/{id}:
+    get:
+      tags: [Matching]
+      operationId: getMatchingRecalculation
+      summary: Get recalculation status
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Recalculation status and summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecalculationResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /leads:
+    get:
+      tags: [Leads]
+      operationId: listLeads
+      summary: Get leads
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: sort
+          in: query
+          schema: { type: string, enum: [number, occurred_at, final_amount], default: occurred_at }
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Lead page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [Leads]
+      operationId: createLead
+      summary: Create a lead, optionally from a call
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadWriteRequest'
+      responses:
+        '201':
+          description: Created lead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadDetailsResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /leads/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Leads]
+      operationId: getLead
+      summary: Get lead and status history
+      responses:
+        '200':
+          description: Lead details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadDetailsResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Leads]
+      operationId: updateLead
+      summary: Partially update a lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadWriteRequest'
+      responses:
+        '200':
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadDetailsResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /leads/{id}/status:
+    post:
+      tags: [Leads]
+      operationId: changeLeadStatus
+      summary: Change lead status and append history
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadStatusChangeRequest'
+      responses:
+        '200':
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadDetailsResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /leads/bulk-status:
+    post:
+      tags: [Leads]
+      operationId: bulkChangeLeadStatus
+      summary: Change status for selected leads
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkLeadStatusRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/BulkActionCompleted'
+        default:
+          $ref: '#/components/responses/Error'
+  /leads/bulk-assign-master:
+    post:
+      tags: [Leads]
+      operationId: bulkAssignLeadMaster
+      summary: Assign a master to selected leads
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkAssignMasterRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/BulkActionCompleted'
+        default:
+          $ref: '#/components/responses/Error'
+  /leads/status-counts:
+    get:
+      tags: [Leads]
+      operationId: getLeadStatusCounts
+      summary: Get lead counters grouped by status
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+      responses:
+        '200':
+          description: Status counters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadStatusCountsResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /shifts/current:
+    get:
+      tags: [Leads]
+      operationId: getCurrentShift
+      summary: Get current operator shift and unresolved lead count
+      responses:
+        '200':
+          description: Current shift
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /shifts/{id}/close:
+    post:
+      tags: [Leads]
+      operationId: closeShift
+      summary: Close a shift if all mandatory leads are resolved
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Closed shift
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /analytics/campaign-tree:
+    get:
+      tags: [Analytics]
+      operationId: getCampaignTree
+      summary: Lazily load account, campaign, ad-group and keyword metrics
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - name: level
+          in: query
+          required: true
+          schema: { type: string, enum: [account, campaign, ad_group, keyword] }
+        - name: parent_id
+          in: query
+          schema: { type: string }
+        - name: loss_only
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: One tree level with totals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsTreeResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /analytics/sites:
+    get:
+      tags: [Analytics]
+      operationId: getSiteComparison
+      summary: Compare sites and accounts
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Site comparison page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteMetricListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /analytics/missed-calls:
+    get:
+      tags: [Analytics]
+      operationId: getMissedCallsAnalytics
+      summary: Get missed calls and estimated loss
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Missed call page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissedCallListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /analytics/exports:
+    post:
+      tags: [Analytics]
+      operationId: createAnalyticsExport
+      summary: Queue one of the analytics exports
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsExportRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/ExportAccepted'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /finance/summary:
+    get:
+      tags: [Finance]
+      operationId: getFinanceSummary
+      summary: Get profit and loss summary
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+      responses:
+        '200':
+          description: P&L summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceSummaryResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /finance/orders:
+    get:
+      tags: [Finance]
+      operationId: listOrderEconomics
+      summary: Get order economics
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Order economics page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderFinanceListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /finance/unattributed:
+    get:
+      tags: [Finance]
+      operationId: listUnattributedOrders
+      summary: Get orders with no exact advertising attribution
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Unattributed order page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderFinanceListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /finance/ad-spend-allocation:
+    get:
+      tags: [Finance]
+      operationId: getAdSpendAllocation
+      summary: Get ad spend allocated over five hierarchy levels
+      parameters:
+        - $ref: '#/components/parameters/ReportFilter'
+        - name: level
+          in: query
+          required: true
+          schema: { type: string, enum: [account, site, campaign, ad_group, keyword] }
+        - name: parent_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Ad spend allocation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdSpendAllocationResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /orders/{id}/financials:
+    patch:
+      tags: [Finance]
+      operationId: updateOrderFinancials
+      summary: Update actual order financial values
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderFinancialsWriteRequest'
+      responses:
+        '200':
+          description: Updated order economics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderFinancialsResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      summary: Get notification occurrences
+      parameters:
+        - name: state
+          in: query
+          schema: { type: string, enum: [active, processed] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: Notification page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /notifications/{id}:
+    patch:
+      tags: [Notifications]
+      operationId: updateNotification
+      summary: Mark a notification as processed or active
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [active, processed] }
+      responses:
+        '200':
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /notification-rules:
+    get:
+      tags: [Notifications]
+      operationId: listNotificationRules
+      summary: Get the seven fixed first-phase rules
+      responses:
+        '200':
+          description: Notification rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRuleListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /notification-rules/{id}:
+    patch:
+      tags: [Notifications]
+      operationId: updateNotificationRule
+      summary: Enable or update allowed settings of a rule
+      description: This operation never modifies advertising accounts or campaigns.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRuleWriteRequest'
+      responses:
+        '200':
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationRuleResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /exports/{id}:
+    get:
+      tags: [Dashboard, Calls, Analytics]
+      operationId: getExport
+      summary: Get background export status and download URL
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Export status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /accounts:
+    get:
+      tags: [Settings]
+      operationId: listAccounts
+      summary: Get Google Ads accounts and nested sites
+      responses:
+        '200':
+          description: Account list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [Settings]
+      operationId: createAccount
+      summary: Create a Google Ads account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountWriteRequest'
+      responses:
+        '201':
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /accounts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Settings]
+      operationId: getAccount
+      summary: Get an account
+      responses:
+        '200':
+          description: Account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Settings]
+      operationId: updateAccount
+      summary: Update an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountWriteRequest'
+      responses:
+        '200':
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Settings]
+      operationId: deleteAccount
+      summary: Delete an account without active dependencies
+      responses:
+        '204': { description: Deleted }
+        default:
+          $ref: '#/components/responses/Error'
+  /sites:
+    get:
+      tags: [Settings]
+      operationId: listSites
+      summary: Get sites
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Site list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [Settings]
+      operationId: createSite
+      summary: Create a site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteWriteRequest'
+      responses:
+        '201':
+          description: Created site
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /sites/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Settings]
+      operationId: getSite
+      summary: Get a site
+      responses:
+        '200':
+          description: Site
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Settings]
+      operationId: updateSite
+      summary: Update a site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteWriteRequest'
+      responses:
+        '200':
+          description: Updated site
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Settings]
+      operationId: deleteSite
+      summary: Delete a site
+      responses:
+        '204': { description: Deleted }
+        default:
+          $ref: '#/components/responses/Error'
+  /phone-numbers:
+    get:
+      tags: [Settings]
+      operationId: listPhoneNumbers
+      summary: Get permanent site phone numbers
+      parameters:
+        - $ref: '#/components/parameters/SiteId'
+      responses:
+        '200':
+          description: Phone number list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumberListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [Settings]
+      operationId: createPhoneNumber
+      summary: Create a globally unique permanent phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneNumberWriteRequest'
+      responses:
+        '201':
+          description: Created phone number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumberResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        default:
+          $ref: '#/components/responses/Error'
+  /phone-numbers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Settings]
+      operationId: getPhoneNumber
+      summary: Get a permanent phone number
+      responses:
+        '200':
+          description: Phone number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumberResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Settings]
+      operationId: updatePhoneNumber
+      summary: Update a permanent phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneNumberWriteRequest'
+      responses:
+        '200':
+          description: Updated phone number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumberResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Settings]
+      operationId: deletePhoneNumber
+      summary: Delete a permanent phone number
+      responses:
+        '204': { description: Deleted }
+        default:
+          $ref: '#/components/responses/Error'
+  /matching/config:
+    get:
+      tags: [Settings]
+      operationId: getMatchingConfig
+      summary: Get read-only first-phase scoring configuration
+      x-roles: [owner, technical_admin]
+      responses:
+        '200':
+          description: Active matching configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchingConfigResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /integrations/google-ads/status:
+    get:
+      tags: [Settings]
+      operationId: getGoogleAdsStatus
+      summary: Get Google Ads integration status
+      responses:
+        '200':
+          description: Integration status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationStatusResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /integrations/telephony/status:
+    get:
+      tags: [Settings]
+      operationId: getTelephonyStatus
+      summary: Get telephony integration status
+      responses:
+        '200':
+          description: Integration status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationStatusResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /users:
+    get:
+      tags: [Settings]
+      operationId: listUsers
+      summary: Get users
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: User page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [Settings]
+      operationId: createUser
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserWriteRequest'
+      responses:
+        '201':
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /users/{id}:
+    get:
+      tags: [Settings]
+      operationId: getUser
+      summary: Get a user
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Settings]
+      operationId: updateUser
+      summary: Update role, status and assignments
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserWriteRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [Settings]
+      operationId: deactivateUser
+      summary: Deactivate a user
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Deactivated }
+        default:
+          $ref: '#/components/responses/Error'
+  /roles:
+    get:
+      tags: [Settings]
+      operationId: listRoles
+      summary: Get seven roles and the effective section matrix
+      responses:
+        '200':
+          description: Roles and permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /audit-log:
+    get:
+      tags: [Settings]
+      operationId: listAuditLog
+      summary: Get immutable action log
+      parameters:
+        - $ref: '#/components/parameters/DateFrom'
+        - $ref: '#/components/parameters/DateTo'
+        - name: user_id
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Audit log page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /events/phone-clicks:
+    post:
+      tags: [Events]
+      operationId: ingestPhoneClick
+      summary: Ingest an idempotent browser phone-click event
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneClickEvent'
+      responses:
+        '200':
+          description: Existing event returned for the same phone_click_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAcceptedResponse'
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAcceptedResponse'
+        default:
+          $ref: '#/components/responses/Error'
+  /webhooks/telephony/calls:
+    post:
+      tags: [Events]
+      operationId: ingestTelephonyCall
+      summary: Ingest an idempotent signed telephony call event
+      description: |
+        The sender retries 429 and 5xx responses with exponential backoff and jitter.
+        It must not retry 2xx or non-rate-limit 4xx responses. `call_id` is the idempotency key.
+      security:
+        - webhookSignature: []
+      parameters:
+        - name: X-Webhook-Timestamp
+          in: header
+          required: true
+          schema: { type: string, format: date-time }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelephonyCallEvent'
+      responses:
+        '200':
+          description: Existing event returned for the same call_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAcceptedResponse'
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAcceptedResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    serviceKey:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-Webhook-Signature
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PerPage:
+      name: per_page
+      in: query
+      schema: { type: integer, enum: [10, 50, 100, 500], default: 50 }
+    Search:
+      name: search
+      in: query
+      schema: { type: string, maxLength: 200 }
+    Sort:
+      name: sort
+      in: query
+      schema: { type: string }
+    Order:
+      name: order
+      in: query
+      description: The UI sends `desc` on the first sortable-column click.
+      schema: { type: string, enum: [asc, desc], default: desc }
+    DateFrom:
+      name: date_from
+      in: query
+      schema: { type: string, format: date-time }
+    DateTo:
+      name: date_to
+      in: query
+      schema: { type: string, format: date-time }
+    AccountId:
+      name: account_id
+      in: query
+      schema: { type: string }
+    SiteId:
+      name: site_id
+      in: query
+      schema: { type: string }
+    CampaignId:
+      name: campaign_id
+      in: query
+      schema: { type: string }
+    AdGroupId:
+      name: ad_group_id
+      in: query
+      schema: { type: string }
+    ReportFilter:
+      name: filters
+      in: query
+      description: |
+        JSON-encoded report filter. Supported keys: date_from, date_to, account_ids,
+        site_ids, campaign_ids, ad_group_ids, keyword_ids, search_query_ids, ad_ids,
+        devices, countries, city_ids, district_ids, service_ids, operator_ids,
+        master_ids, lead_statuses and confidence_categories. All ID/status fields are arrays.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReportFilter'
+  responses:
+    Error:
+      description: |
+        Error response. Operations can return 400, 401, 403, 404, 409, 422, 429 or 500.
+        A 403 response drives the dedicated "no role access" screen state.
+      headers:
+        X-Request-Id:
+          schema: { type: string }
+        Retry-After:
+          description: Present for 429 and retryable service errors.
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Check the submitted fields
+                  field_errors:
+                    date_from: [Date from must not be later than date to]
+                  request_id: req_01JGA9
+            forbidden:
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: This role has no access to the requested resource
+                  field_errors: {}
+                  request_id: req_01JGA9
+    Conflict:
+      description: The requested state conflicts with current data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: CONFLICT
+              message: The operation conflicts with current data
+              field_errors: {}
+              request_id: req_01JGA9
+    ExportAccepted:
+      description: Export queued
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExportResponse'
+    BulkActionCompleted:
+      description: Bulk action completed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BulkActionResponse'
+  schemas:
+    ResponseMeta:
+      type: object
+      required: [hidden_fields]
+      properties:
+        hidden_fields:
+          type: array
+          items: { type: string }
+      example: { hidden_fields: [] }
+    PaginationMeta:
+      allOf:
+        - $ref: '#/components/schemas/ResponseMeta'
+        - type: object
+          required: [page, per_page, total, from, to]
+          properties:
+            page: { type: integer, minimum: 1 }
+            per_page: { type: integer, enum: [10, 50, 100, 500] }
+            total: { type: integer, minimum: 0 }
+            from: { type: integer, minimum: 0 }
+            to: { type: integer, minimum: 0 }
+      example: { page: 1, per_page: 50, total: 1, from: 1, to: 1, hidden_fields: [] }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, field_errors, request_id]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            field_errors:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
+            request_id: { type: string }
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          pattern: '^-?\d+\.\d{2}$'
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+      example: { amount: '12480.00', currency: EUR }
+    NullableMetric:
+      type: [number, 'null']
+      description: Null means the denominator is zero.
+    RoleCode:
+      type: string
+      enum: [owner, manager, marketer, operator, accountant, client, technical_admin]
+    AccessLevel:
+      type: string
+      enum: [full, read, none]
+    CallStatus:
+      type: string
+      enum: [answered, missed]
+    ConfidenceCategory:
+      type: string
+      enum: [high, probable, review, unattributed]
+    UnattributedReason:
+      type: string
+      enum: [over_five_minutes, no_phone_click, multiple_candidates, direct_call]
+    LeadStatus:
+      type: string
+      enum:
+        - new_call
+        - missed
+        - spam
+        - unsuitable
+        - price_request
+        - qualified_lead
+        - master_assigned
+        - master_departed
+        - order_completed
+        - payment_received
+        - cancelled
+        - refund
+        - repeat_order
+    ReportFilter:
+      type: object
+      properties:
+        date_from: { type: string, format: date-time }
+        date_to: { type: string, format: date-time }
+        account_ids: { type: array, items: { type: string } }
+        site_ids: { type: array, items: { type: string } }
+        campaign_ids: { type: array, items: { type: string } }
+        ad_group_ids: { type: array, items: { type: string } }
+        keyword_ids: { type: array, items: { type: string } }
+        search_query_ids: { type: array, items: { type: string } }
+        ad_ids: { type: array, items: { type: string } }
+        devices: { type: array, items: { type: string } }
+        countries: { type: array, items: { type: string } }
+        city_ids: { type: array, items: { type: string } }
+        district_ids: { type: array, items: { type: string } }
+        service_ids: { type: array, items: { type: string } }
+        operator_ids: { type: array, items: { type: string } }
+        master_ids: { type: array, items: { type: string } }
+        lead_statuses: { type: array, items: { $ref: '#/components/schemas/LeadStatus' } }
+        confidence_categories: { type: array, items: { $ref: '#/components/schemas/ConfidenceCategory' } }
+    HealthResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [status, database, task_queue, last_migration_at, version]
+          properties:
+            status: { type: string, enum: [ok, degraded, unavailable] }
+            database: { type: string, enum: [available, unavailable] }
+            task_queue: { type: string, enum: [available, unavailable] }
+            last_migration_at: { type: string, format: date-time }
+            version: { type: string }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+      example:
+        data: { status: ok, database: available, task_queue: available, last_migration_at: '2026-09-08T08:00:00Z', version: 1.0.0 }
+        meta: { hidden_fields: [] }
+    VersionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [version, environment, built_at]
+          properties:
+            version: { type: string }
+            environment: { type: string, enum: [development, staging, production] }
+            built_at: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+      example:
+        data: { version: 1.0.0, environment: development, built_at: '2026-09-08T08:00:00Z' }
+        meta: { hidden_fields: [] }
+    CurrentUserResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, name, email, role, account_ids, site_ids, section_access, capabilities]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            email: { type: string, format: email }
+            role: { $ref: '#/components/schemas/RoleCode' }
+            account_ids: { type: array, items: { type: string } }
+            site_ids: { type: array, items: { type: string } }
+            section_access:
+              type: object
+              additionalProperties: { $ref: '#/components/schemas/AccessLevel' }
+            capabilities:
+              type: array
+              items: { type: string }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+      example:
+        data:
+          id: usr_1
+          name: Anna Owner
+          email: anna@example.com
+          role: owner
+          account_ids: [acc_1]
+          site_ids: [site_1]
+          section_access: { dashboard: full, calls: full, matching: full, leads: full, analytics: full, districts: none, finance: full, notifications: full, settings: full }
+          capabilities: [calls.export, leads.write, finance.write]
+        meta: { hidden_fields: [] }
+    ReferenceItem:
+      type: object
+      required: [id, label]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        parent_id: { type: [string, 'null'] }
+    ReferenceListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ReferenceItem' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+      examples:
+        - data: [{ id: site_1, label: sanitaer-notdienst-berlin.de, parent_id: acc_1 }]
+          meta: { hidden_fields: [] }
+        - data: []
+          meta: { hidden_fields: [] }
+    MetricSet:
+      type: object
+      properties:
+        ad_spend: { $ref: '#/components/schemas/Money' }
+        impressions: { type: integer, minimum: 0 }
+        clicks: { type: integer, minimum: 0 }
+        ctr: { $ref: '#/components/schemas/NullableMetric' }
+        cpc: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        phone_clicks: { type: integer, minimum: 0 }
+        calls: { type: integer, minimum: 0 }
+        missed_calls: { type: integer, minimum: 0 }
+        matched_calls: { type: integer, minimum: 0 }
+        leads: { type: integer, minimum: 0 }
+        orders: { type: integer, minimum: 0 }
+        revenue: { $ref: '#/components/schemas/Money' }
+        expenses: { $ref: '#/components/schemas/Money' }
+        profit: { $ref: '#/components/schemas/Money' }
+        roi: { $ref: '#/components/schemas/NullableMetric' }
+        cpl: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        cpa: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        roas: { $ref: '#/components/schemas/NullableMetric' }
+    DashboardOverviewResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [metrics, funnel]
+          properties:
+            metrics: { $ref: '#/components/schemas/MetricSet' }
+            funnel:
+              type: array
+              items:
+                type: object
+                required: [code, label, value]
+                properties:
+                  code: { type: string }
+                  label: { type: string }
+                  value: { type: integer, minimum: 0 }
+                  conversion: { $ref: '#/components/schemas/NullableMetric' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+      example:
+        data:
+          metrics: { impressions: 150000, clicks: 7200, phone_clicks: 1800, calls: 1284, leads: 486, orders: 240, roi: 151.8 }
+          funnel: [{ code: clicks, label: Clicks, value: 7200, conversion: 100 }, { code: calls, label: Calls, value: 1284, conversion: 17.83 }]
+        meta: { hidden_fields: [] }
+    SiteMetric:
+      type: object
+      required: [site_id, site_name, metrics]
+      properties:
+        site_id: { type: string }
+        site_name: { type: string }
+        account_id: { type: string }
+        metrics: { $ref: '#/components/schemas/MetricSet' }
+    SiteMetricListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/SiteMetric' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+      example:
+        data: [{ site_id: site_1, site_name: sanitaer-notdienst-berlin.de, account_id: acc_1, metrics: { calls: 412, leads: 175, roi: 175.5 } }]
+        meta: { page: 1, per_page: 50, total: 1, from: 1, to: 1, hidden_fields: [] }
+    Call:
+      type: object
+      required: [id, call_id, started_at, caller_phone, site, wait_duration_seconds, talk_duration_seconds, status, confidence, is_repeat]
+      properties:
+        id: { type: string }
+        call_id: { type: string }
+        started_at: { type: string, format: date-time }
+        caller_phone: { type: string }
+        site: { $ref: '#/components/schemas/ReferenceItem' }
+        wait_duration_seconds: { type: integer, minimum: 0 }
+        talk_duration_seconds: { type: integer, minimum: 0 }
+        status: { $ref: '#/components/schemas/CallStatus' }
+        operator: { oneOf: [{ $ref: '#/components/schemas/ReferenceItem' }, { type: 'null' }] }
+        confidence: { $ref: '#/components/schemas/ConfidenceCategory' }
+        source: { type: [string, 'null'] }
+        campaign: { type: [string, 'null'] }
+        ad_group: { type: [string, 'null'] }
+        keyword: { type: [string, 'null'] }
+        is_repeat: { type: boolean }
+        lead_id: { type: [string, 'null'] }
+        has_recording: { type: boolean }
+    CallListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Call' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+      example:
+        data:
+          - id: call_1
+            call_id: tel_987
+            started_at: '2026-09-08T10:15:30+03:00'
+            caller_phone: '+4915112345678'
+            site: { id: site_1, label: sanitaer-notdienst-berlin.de }
+            wait_duration_seconds: 8
+            talk_duration_seconds: 184
+            status: answered
+            operator: { id: usr_4, label: Maria }
+            confidence: high
+            source: google
+            campaign: Emergency Berlin
+            ad_group: Plumbing
+            keyword: plumber berlin
+            is_repeat: false
+            lead_id: lead_1
+            has_recording: true
+        meta: { page: 1, per_page: 50, total: 1, from: 1, to: 1, hidden_fields: [] }
+    CallDetailsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/Call'
+            - type: object
+              properties:
+                answered_at: { type: [string, 'null'], format: date-time }
+                ended_at: { type: [string, 'null'], format: date-time }
+                first_touch_source: { type: [string, 'null'] }
+                last_touch_source: { type: [string, 'null'] }
+                recording_transcript: { type: [string, 'null'] }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    RecordingResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [url, expires_at]
+          properties:
+            url: { type: string, format: uri }
+            expires_at: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    CallBulkActionRequest:
+      type: object
+      required: [call_ids, action]
+      properties:
+        call_ids: { type: array, minItems: 1, items: { type: string } }
+        action: { type: string, enum: [mark_reviewed, create_leads, export] }
+    BulkActionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [processed, failed]
+          properties:
+            processed: { type: integer, minimum: 0 }
+            failed: { type: integer, minimum: 0 }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ScoreExplanation:
+      type: object
+      required: [code, text, points, order]
+      properties:
+        code: { type: string }
+        text: { type: string }
+        points: { type: integer }
+        order: { type: integer, minimum: 0 }
+    MatchingItem:
+      type: object
+      required: [call, score, category, candidate_count, has_tie]
+      properties:
+        call: { $ref: '#/components/schemas/Call' }
+        score: { type: integer }
+        category: { $ref: '#/components/schemas/ConfidenceCategory' }
+        candidate_count: { type: integer, minimum: 0 }
+        has_tie: { type: boolean }
+        unattributed_reason: { oneOf: [{ $ref: '#/components/schemas/UnattributedReason' }, { type: 'null' }] }
+    MatchingListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/MatchingItem' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+      example:
+        data:
+          - call:
+              id: call_1
+              call_id: tel_987
+              started_at: '2026-09-08T10:15:30+03:00'
+              caller_phone: '+4915112345678'
+              site: { id: site_1, label: sanitaer-notdienst-berlin.de }
+              wait_duration_seconds: 8
+              talk_duration_seconds: 184
+              status: answered
+              confidence: review
+              is_repeat: false
+            score: 65
+            category: review
+            candidate_count: 2
+            has_tie: false
+            unattributed_reason: null
+        meta: { page: 1, per_page: 50, total: 1, from: 1, to: 1, hidden_fields: [] }
+    PhoneClick:
+      type: object
+      required: [phone_click_id, occurred_at, site_id, visitor_id, session_id, destination_phone, current_page, linked_call_id]
+      properties:
+        phone_click_id: { type: string }
+        occurred_at: { type: string, format: date-time }
+        site_id: { type: string }
+        visitor_id: { type: string }
+        session_id: { type: string }
+        destination_phone: { type: string }
+        source: { type: [string, 'null'] }
+        campaign: { type: [string, 'null'] }
+        ad_group: { type: [string, 'null'] }
+        keyword: { type: [string, 'null'] }
+        device: { type: [string, 'null'] }
+        landing_page: { type: string, format: uri }
+        current_page: { type: string, format: uri }
+        linked_call_id: { type: [string, 'null'] }
+    PhoneClickListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/PhoneClick' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    MatchingCandidate:
+      type: object
+      required: [phone_click, score, category, time_delta_seconds, explanations]
+      properties:
+        phone_click: { $ref: '#/components/schemas/PhoneClick' }
+        score: { type: integer }
+        category: { $ref: '#/components/schemas/ConfidenceCategory' }
+        time_delta_seconds: { type: integer, minimum: 0 }
+        explanations: { type: array, items: { $ref: '#/components/schemas/ScoreExplanation' } }
+    MatchingCandidatesResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [call_id, has_tie, candidates]
+          properties:
+            call_id: { type: string }
+            has_tie: { type: boolean }
+            candidates: { type: array, items: { $ref: '#/components/schemas/MatchingCandidate' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    MatchingDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [match, unattributed] }
+        phone_click_id: { type: [string, 'null'] }
+        reason: { oneOf: [{ $ref: '#/components/schemas/UnattributedReason' }, { type: 'null' }] }
+        comment: { type: [string, 'null'], maxLength: 1000 }
+    MatchingDecisionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [call_id, decision, decided_by, decided_at]
+          properties:
+            call_id: { type: string }
+            decision: { type: string, enum: [match, unattributed] }
+            phone_click_id: { type: [string, 'null'] }
+            decided_by: { type: string }
+            decided_at: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    RecalculationRequest:
+      type: object
+      required: [date_from, date_to, dry_run]
+      properties:
+        date_from: { type: string, format: date-time }
+        date_to: { type: string, format: date-time }
+        account_id: { type: [string, 'null'] }
+        site_ids: { type: array, items: { type: string } }
+        dry_run: { type: boolean }
+    RecalculationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, status, progress_percent]
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [queued, running, completed, failed] }
+            progress_percent: { type: number, minimum: 0, maximum: 100 }
+            processed: { type: integer, minimum: 0 }
+            skipped_manual: { type: integer, minimum: 0 }
+            category_changes: { type: object, additionalProperties: { type: integer } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    Lead:
+      type: object
+      required: [id, number, occurred_at, client_name, phone, site, source, service, city, district, address, preliminary_amount, final_amount, status]
+      properties:
+        id: { type: string }
+        number: { type: string }
+        occurred_at: { type: string, format: date-time }
+        client_name: { type: string }
+        phone: { type: string }
+        site: { $ref: '#/components/schemas/ReferenceItem' }
+        source: { type: [string, 'null'] }
+        campaign: { type: [string, 'null'] }
+        ad_group: { type: [string, 'null'] }
+        keyword: { type: [string, 'null'] }
+        service: { $ref: '#/components/schemas/ReferenceItem' }
+        city: { $ref: '#/components/schemas/ReferenceItem' }
+        district: { $ref: '#/components/schemas/ReferenceItem' }
+        address: { type: string }
+        master: { oneOf: [{ $ref: '#/components/schemas/ReferenceItem' }, { type: 'null' }] }
+        operator: { oneOf: [{ $ref: '#/components/schemas/ReferenceItem' }, { type: 'null' }] }
+        preliminary_amount: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        final_amount: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        status: { $ref: '#/components/schemas/LeadStatus' }
+        cancellation_reason: { type: [string, 'null'] }
+        call_id: { type: [string, 'null'] }
+    LeadListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Lead' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+      example:
+        data:
+          - id: lead_1
+            number: GA-000001
+            occurred_at: '2026-09-08T10:16:00+03:00'
+            client_name: Max Mustermann
+            phone: '+4915112345678'
+            site: { id: site_1, label: sanitaer-notdienst-berlin.de }
+            source: google
+            service: { id: service_1, label: Plumbing }
+            city: { id: city_1, label: Berlin }
+            district: { id: district_1, label: Mitte }
+            address: Example street 1
+            master: { id: usr_8, label: Alex }
+            preliminary_amount: { amount: '200.00', currency: EUR }
+            final_amount: { amount: '240.00', currency: EUR }
+            status: qualified_lead
+            cancellation_reason: null
+        meta: { page: 1, per_page: 50, total: 1, from: 1, to: 1, hidden_fields: [] }
+    LeadWriteRequest:
+      type: object
+      required: [client_name, phone, site_id, service_id, city_id, district_id, address, occurred_at, preliminary_amount, final_amount, status]
+      properties:
+        client_name: { type: string }
+        phone: { type: string }
+        site_id: { type: string }
+        source: { type: [string, 'null'] }
+        service_id: { type: string }
+        city_id: { type: string }
+        district_id: { type: string }
+        address: { type: string }
+        occurred_at: { type: string, format: date-time }
+        master_id: { type: [string, 'null'] }
+        preliminary_amount: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        final_amount: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+        status: { $ref: '#/components/schemas/LeadStatus' }
+        cancellation_reason: { type: [string, 'null'] }
+        call_id: { type: [string, 'null'], description: Idempotency key when a lead is created from a call. }
+    StatusHistoryItem:
+      type: object
+      required: [status, author, occurred_at]
+      properties:
+        status: { $ref: '#/components/schemas/LeadStatus' }
+        author: { $ref: '#/components/schemas/ReferenceItem' }
+        occurred_at: { type: string, format: date-time }
+        comment: { type: [string, 'null'] }
+    LeadDetailsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/Lead'
+            - type: object
+              required: [status_history]
+              properties:
+                status_history: { type: array, items: { $ref: '#/components/schemas/StatusHistoryItem' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    LeadStatusChangeRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/LeadStatus' }
+        cancellation_reason: { type: [string, 'null'] }
+        comment: { type: [string, 'null'] }
+    BulkLeadStatusRequest:
+      type: object
+      required: [lead_ids, status]
+      properties:
+        lead_ids: { type: array, minItems: 1, items: { type: string } }
+        status: { $ref: '#/components/schemas/LeadStatus' }
+        cancellation_reason: { type: [string, 'null'] }
+    BulkAssignMasterRequest:
+      type: object
+      required: [lead_ids, master_id]
+      properties:
+        lead_ids: { type: array, minItems: 1, items: { type: string } }
+        master_id: { type: string }
+    LeadStatusCountsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status: { $ref: '#/components/schemas/LeadStatus' }
+              count: { type: integer, minimum: 0 }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ShiftResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, status, started_at, unresolved_mandatory_leads]
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [open, closed] }
+            started_at: { type: string, format: date-time }
+            closed_at: { type: [string, 'null'], format: date-time }
+            unresolved_mandatory_leads: { type: integer, minimum: 0 }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AnalyticsRow:
+      type: object
+      required: [id, label, level, has_children, is_total, metrics]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        level: { type: string, enum: [account, campaign, ad_group, keyword] }
+        parent_id: { type: [string, 'null'] }
+        customer_id: { type: [string, 'null'] }
+        match_type: { type: [string, 'null'] }
+        has_children: { type: boolean }
+        is_total: { type: boolean }
+        metrics: { $ref: '#/components/schemas/MetricSet' }
+    AnalyticsTreeResponse:
+      type: object
+      required: [data, totals, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/AnalyticsRow' } }
+        totals: { type: array, items: { $ref: '#/components/schemas/AnalyticsRow' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    MissedCall:
+      allOf:
+        - $ref: '#/components/schemas/Call'
+        - type: object
+          properties:
+            estimated_loss: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }] }
+    MissedCallListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/MissedCall' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    ExportRequest:
+      type: object
+      required: [format, filters]
+      properties:
+        format: { type: string, enum: [csv, xlsx] }
+        filters: { $ref: '#/components/schemas/ReportFilter' }
+        columns: { type: array, items: { type: string } }
+    AnalyticsExportRequest:
+      allOf:
+        - $ref: '#/components/schemas/ExportRequest'
+        - type: object
+          required: [report]
+          properties:
+            report: { type: string, enum: [campaign_tree, sites, missed_calls] }
+    ExportResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, status]
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [queued, running, completed, failed] }
+            download_url: { type: [string, 'null'], format: uri }
+            expires_at: { type: [string, 'null'], format: date-time }
+            error_message: { type: [string, 'null'] }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    OrderFinancials:
+      type: object
+      properties:
+        customer_amount: { $ref: '#/components/schemas/Money' }
+        master_payment: { $ref: '#/components/schemas/Money' }
+        materials: { $ref: '#/components/schemas/Money' }
+        transport: { $ref: '#/components/schemas/Money' }
+        payment_fee: { $ref: '#/components/schemas/Money' }
+        discount: { $ref: '#/components/schemas/Money' }
+        refund: { $ref: '#/components/schemas/Money' }
+        other_direct_expenses: { $ref: '#/components/schemas/Money' }
+        ad_spend: { $ref: '#/components/schemas/Money' }
+        profit_before_ads: { $ref: '#/components/schemas/Money' }
+        net_profit: { $ref: '#/components/schemas/Money' }
+    OrderFinance:
+      type: object
+      required: [order_id, lead_id, completed_at, financials, is_repeat_revenue, is_unattributed]
+      properties:
+        order_id: { type: string }
+        lead_id: { type: string }
+        site: { $ref: '#/components/schemas/ReferenceItem' }
+        completed_at: { type: string, format: date-time }
+        financials: { $ref: '#/components/schemas/OrderFinancials' }
+        is_repeat_revenue: { type: boolean }
+        is_unattributed: { type: boolean }
+    OrderFinanceListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/OrderFinance' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    FinanceSummaryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/OrderFinancials' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AdSpendAllocationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [id, label, level, ad_spend]
+            properties:
+              id: { type: string }
+              label: { type: string }
+              level: { type: string, enum: [account, site, campaign, ad_group, keyword] }
+              parent_id: { type: [string, 'null'] }
+              ad_spend: { $ref: '#/components/schemas/Money' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    OrderFinancialsWriteRequest:
+      allOf:
+        - $ref: '#/components/schemas/OrderFinancials'
+      description: Derived fields profit_before_ads and net_profit are ignored if submitted and are recalculated by the server.
+    OrderFinancialsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/OrderFinance' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    Notification:
+      type: object
+      required: [id, rule_code, title, message, occurred_at, state, object_type, object_id, frontend_path]
+      properties:
+        id: { type: string }
+        rule_code: { type: string }
+        title: { type: string }
+        message: { type: string }
+        occurred_at: { type: string, format: date-time }
+        state: { type: string, enum: [active, processed] }
+        object_type: { type: string }
+        object_id: { type: string }
+        frontend_path: { type: string, pattern: '^/' }
+        metric_value: { type: [number, string, 'null'] }
+        processed_by: { type: [string, 'null'] }
+        processed_at: { type: [string, 'null'], format: date-time }
+    NotificationListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+      example:
+        data: [{ id: alert_1, rule_code: campaign_loss, title: Campaign is unprofitable, message: Profit fell below zero, occurred_at: '2026-09-08T10:00:00Z', state: active, object_type: campaign, object_id: cmp_1, frontend_path: '/analytics?tab=campaigns&campaign_id=cmp_1' }]
+        meta: { page: 1, per_page: 50, total: 1, from: 1, to: 1, hidden_fields: [] }
+    NotificationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Notification' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    NotificationRule:
+      type: object
+      required: [id, code, name, metric, operator, threshold, period_seconds, channel, recipient_roles, enabled]
+      properties:
+        id: { type: string }
+        code:
+          type: string
+          enum: [site_spend_without_orders, keyword_or_campaign_loss, cpl_growth, missed_calls_growth, conversion_drop, completed_order_without_amount, multiple_call_sources]
+        name: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, gte, lt, lte, eq] }
+        threshold: { type: number }
+        period_seconds: { type: integer, minimum: 1 }
+        channel: { type: string, enum: [telegram] }
+        recipient_roles: { type: array, items: { $ref: '#/components/schemas/RoleCode' } }
+        enabled: { type: boolean }
+    NotificationRuleListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/NotificationRule' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    NotificationRuleWriteRequest:
+      type: object
+      properties:
+        threshold: { type: number }
+        period_seconds: { type: integer, minimum: 1 }
+        recipient_roles: { type: array, items: { $ref: '#/components/schemas/RoleCode' } }
+        enabled: { type: boolean }
+      minProperties: 1
+    NotificationRuleResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/NotificationRule' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    Site:
+      type: object
+      required: [id, account_id, domain, permanent_phone, city, service_directions, tracking_script_status]
+      properties:
+        id: { type: string }
+        account_id: { type: string }
+        domain: { type: string, format: hostname }
+        permanent_phone: { type: string }
+        city: { type: string }
+        service_directions: { type: array, items: { type: string } }
+        tracking_script_status: { type: string, enum: [installed, unavailable, not_installed] }
+    Account:
+      type: object
+      required: [id, name, customer_id, country, currency, status, sites]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        customer_id: { type: string }
+        country: { type: string }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        status: { type: string, enum: [connected, disconnected, error] }
+        sites: { type: array, items: { $ref: '#/components/schemas/Site' } }
+    AccountWriteRequest:
+      type: object
+      required: [name, customer_id, country, currency]
+      properties:
+        name: { type: string }
+        customer_id: { type: string }
+        country: { type: string }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+    AccountResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Account' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AccountListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Account' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+      example:
+        data:
+          - id: acc_1
+            name: Berlin Services
+            customer_id: 123-456-7890
+            country: DE
+            currency: EUR
+            status: connected
+            sites: [{ id: site_1, account_id: acc_1, domain: sanitaer-notdienst-berlin.de, permanent_phone: '+49301234567', city: Berlin, service_directions: [Plumbing], tracking_script_status: installed }]
+        meta: { hidden_fields: [] }
+    SiteWriteRequest:
+      type: object
+      required: [account_id, domain, permanent_phone, city, service_directions]
+      properties:
+        account_id: { type: string }
+        domain: { type: string, format: hostname }
+        permanent_phone: { type: string }
+        city: { type: string }
+        service_directions: { type: array, items: { type: string } }
+    SiteResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Site' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    SiteListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Site' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    PhoneNumber:
+      type: object
+      required: [id, site_id, phone, active]
+      properties:
+        id: { type: string }
+        site_id: { type: string }
+        phone: { type: string }
+        active: { type: boolean }
+    PhoneNumberWriteRequest:
+      type: object
+      required: [site_id, phone, active]
+      properties:
+        site_id: { type: string }
+        phone: { type: string }
+        active: { type: boolean }
+    PhoneNumberResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/PhoneNumber' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    PhoneNumberListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/PhoneNumber' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    MatchingConfigResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [version, updated_at, time_windows_seconds, thresholds, rules]
+          properties:
+            version: { type: string }
+            updated_at: { type: string, format: date-time }
+            time_windows_seconds: { type: array, items: { type: integer }, minItems: 4, maxItems: 4 }
+            thresholds:
+              type: object
+              required: [high, probable, review]
+              properties:
+                high: { type: integer }
+                probable: { type: integer }
+                review: { type: integer }
+            rules:
+              type: array
+              items:
+                type: object
+                required: [code, label, points]
+                properties:
+                  code: { type: string }
+                  label: { type: string }
+                  points: { type: integer }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    IntegrationStatusResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [status, last_success_at]
+          properties:
+            status: { type: string, enum: [connected, disconnected, degraded, error] }
+            last_success_at: { type: [string, 'null'], format: date-time }
+            last_error: { type: [string, 'null'] }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    User:
+      type: object
+      required: [id, name, email, role, active, account_ids, site_ids]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/RoleCode' }
+        active: { type: boolean }
+        account_ids: { type: array, items: { type: string } }
+        site_ids: { type: array, items: { type: string } }
+    UserWriteRequest:
+      type: object
+      required: [name, email, role, active, account_ids, site_ids]
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/RoleCode' }
+        active: { type: boolean }
+        account_ids: { type: array, items: { type: string } }
+        site_ids: { type: array, items: { type: string } }
+    UserResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/User' }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    UserListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/User' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    RoleListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [code, label, sections, hidden_field_groups]
+            properties:
+              code: { $ref: '#/components/schemas/RoleCode' }
+              label: { type: string }
+              sections:
+                type: object
+                additionalProperties: { $ref: '#/components/schemas/AccessLevel' }
+              hidden_field_groups:
+                type: array
+                items: { type: string, enum: [money, advertising, staff, recordings, transcripts] }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AuditLogEntry:
+      type: object
+      required: [id, occurred_at, user, role, action, object_type, object_id, ip]
+      properties:
+        id: { type: string }
+        occurred_at: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/ReferenceItem' }
+        role: { $ref: '#/components/schemas/RoleCode' }
+        action: { type: string }
+        object_type: { type: string }
+        object_id: { type: string }
+        ip: { type: string }
+        request_id: { type: string }
+    AuditLogListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/AuditLogEntry' } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    PhoneClickEvent:
+      type: object
+      required: [phone_click_id, site_id, visitor_id, session_id, destination_phone, occurred_at, landing_page, current_page]
+      properties:
+        phone_click_id: { type: string }
+        site_id: { type: string }
+        visitor_id: { type: string }
+        session_id: { type: string }
+        destination_phone: { type: string }
+        occurred_at: { type: string, format: date-time, description: Server-synchronized timestamp with millisecond precision. }
+        gclid: { type: [string, 'null'] }
+        gbraid: { type: [string, 'null'] }
+        wbraid: { type: [string, 'null'] }
+        source: { type: [string, 'null'] }
+        campaign_id: { type: [string, 'null'] }
+        ad_group_id: { type: [string, 'null'] }
+        keyword: { type: [string, 'null'] }
+        ad_id: { type: [string, 'null'] }
+        device: { type: [string, 'null'] }
+        landing_page: { type: string, format: uri }
+        current_page: { type: string, format: uri }
+        target_district_id: { type: [string, 'null'] }
+    TelephonyCallEvent:
+      type: object
+      required: [call_id, caller_phone, destination_phone, started_at, wait_duration_seconds, talk_duration_seconds, status, is_repeat]
+      properties:
+        call_id: { type: string }
+        caller_phone: { type: string }
+        destination_phone: { type: string }
+        started_at: { type: string, format: date-time }
+        answered_at: { type: [string, 'null'], format: date-time }
+        ended_at: { type: [string, 'null'], format: date-time }
+        wait_duration_seconds: { type: integer, minimum: 0 }
+        talk_duration_seconds: { type: integer, minimum: 0 }
+        status: { $ref: '#/components/schemas/CallStatus' }
+        operator_external_id: { type: [string, 'null'] }
+        recording_url: { type: [string, 'null'], format: uri }
+        is_repeat: { type: boolean }
+    EventAcceptedResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, duplicate, accepted_at]
+          properties:
+            id: { type: string }
+            duplicate: { type: boolean }
+            accepted_at: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+
+x-role-field-policy:
+  owner: { scope: all, hidden_field_groups: [] }
+  manager: { scope: assigned_projects, hidden_field_groups: [] }
+  marketer: { scope: assigned_projects, hidden_field_groups: [money] }
+  operator: { scope: calls_and_leads, hidden_field_groups: [money] }
+  accountant: { scope: assigned_projects, hidden_field_groups: [advertising] }
+  client: { scope: assigned_accounts_and_sites, hidden_field_groups: [staff] }
+  technical_admin: { scope: settings, hidden_field_groups: [recordings, transcripts] }
+x-first-phase-boundary:
+  frontend_routes:
+    dashboard: /dashboard
+    calls: /calls
+    call_details: /calls/{id}
+    matching: /matching?tab=review|phone-clicks|unattributed
+    leads: /requests
+    lead_details: /requests/{id}
+    analytics: /analytics?tab=campaigns|sites|missed-calls
+    districts: /districts
+    finance: /finance
+    notifications: /notifications
+    settings: /settings?tab=accounts-sites|matching|google-ads|telephony|users-roles|security-audit
+  deferred:
+    - District map and district reporting API
+    - Search queries report tab
+    - Services report tab
+    - Operators report tab
+    - Masters report tab
+    - Editing matching weights and thresholds
+x-standard-error-statuses:
+  '400': Malformed request or unsupported filter/sort field
+  '401': Authentication is missing or expired
+  '403': Role or assignment does not allow the operation
+  '404': Resource does not exist in the caller's visible scope
+  '409': Idempotency or current-state conflict
+  '422': Validation failed; field_errors contains form field names
+  '429': Rate limit exceeded; Retry-After is returned
+  '500': Unhandled server error; request_id identifies the log entry
+x-mock-scenarios:
+  filled:
+    description: Use the schema example or generated values with a non-empty data array.
+  empty:
+    description: Collection endpoints return HTTP 200 with data=[] and pagination from=0/to=0/total=0.
+  forbidden:
+    description: Return HTTP 403 with error.code=FORBIDDEN.
+  failure:
+    description: Return HTTP 500 with a request_id that can be shown in the UI.

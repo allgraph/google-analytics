@@ -40,6 +40,10 @@ src/
 
 `project-materials/` содержит локальные ТЗ, прототип и Jira-выгрузки. Каталог исключён из Git.
 
+## API-контракт
+
+Черновик OpenAPI первой очереди находится в [`docs/openapi.yaml`](docs/openapi.yaml). Правила пагинации, ролевого усечения данных, карта экранов и запуск мок-сервера описаны в [`docs/api-contract.md`](docs/api-contract.md).
+
 ## Git workflow
 
 Используются три уровня веток:

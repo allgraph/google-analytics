@@ -98,9 +98,20 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/known_hosts"
 
-          printf '%s\n' "$SSH_KEY_1" > "$HOME/.ssh/deploy_key_1"
-          printf '%s\n' "$SSH_KEY_2" > "$HOME/.ssh/deploy_key_2"
+          printf '%s\n' "$SSH_KEY_1" | tr -d '\r' > "$HOME/.ssh/deploy_key_1"
+          printf '%s\n' "$SSH_KEY_2" | tr -d '\r' > "$HOME/.ssh/deploy_key_2"
+          
           chmod 600 "$HOME/.ssh/deploy_key_1" "$HOME/.ssh/deploy_key_2"
+          
+          ssh-keygen -y -f "$HOME/.ssh/deploy_key_1" >/dev/null || {
+            echo "SSH key 1 is not a valid OpenSSH private key"
+            exit 1
+          }
+          
+          ssh-keygen -y -f "$HOME/.ssh/deploy_key_2" >/dev/null || {
+            echo "SSH key 2 is not a valid OpenSSH private key"
+            exit 1
+          }
 
           SSH_OPTIONS=(
             -p "$VPS_PORT"

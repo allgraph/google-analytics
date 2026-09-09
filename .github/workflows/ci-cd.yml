@@ -113,9 +113,22 @@ jobs:
             -o ConnectTimeout=10
           )
 
-          ssh "${SSH_OPTIONS[@]}" \
+          echo "=== SSH key fingerprint ==="
+          ssh-keygen -y -f "$HOME/.ssh/deploy_key" | ssh-keygen -lf -
+
+          echo "=== Target ==="
+          echo "Host: $VPS_HOST"
+          echo "Port: $VPS_PORT"
+          echo "User: $VPS_USER"
+
+          echo "=== known_hosts check ==="
+          ssh-keygen -F "$VPS_HOST" -f "$HOME/.ssh/known_hosts" || true
+
+          echo "=== SSH connection test ==="
+          ssh -vvv "${SSH_OPTIONS[@]}" \
             -i "$HOME/.ssh/deploy_key" \
-            "$VPS_USER@$VPS_HOST" true
+            "$VPS_USER@$VPS_HOST" \
+            "echo GITHUB_SSH_OK"
 
           echo "SSH_KEY=$HOME/.ssh/deploy_key" >> "$GITHUB_ENV"
 

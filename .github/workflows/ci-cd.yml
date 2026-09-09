@@ -86,7 +86,7 @@ jobs:
       - name: Configure SSH
         shell: bash
         env:
-          SSH_PRIVATE_KEY: ${{ secrets._SSH_PRIVAT_KEY_2 }}
+          SSH_PRIVATE_KEY: ${{ secrets._SSH_PRIVAT_KEY }}
           KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           set -Eeuo pipefail

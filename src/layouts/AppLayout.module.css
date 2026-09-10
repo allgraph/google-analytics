@@ -1,0 +1,81 @@
+.app {
+  min-height: 100vh;
+}
+
+.workspace {
+  min-width: 0;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  height: 64px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgb(255 255 255 / 95%);
+  line-height: 1.5;
+  backdrop-filter: blur(8px);
+}
+
+.account {
+  color: var(--color-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.iconButton.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+  border: 0;
+  color: var(--color-secondary);
+}
+
+.menuButton.menuButton {
+  width: 36px;
+  height: 36px;
+  margin-right: 12px;
+}
+
+.avatar.avatar {
+  flex-shrink: 0;
+  background: var(--color-avatarBackground);
+  color: var(--color-primaryText);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.content {
+  padding: 16px;
+}
+
+@media (min-width: 640px) {
+  .header {
+    padding-inline: 24px;
+  }
+  .content {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .workspace {
+    padding-left: 240px;
+  }
+  .menuButton.menuButton {
+    display: none;
+  }
+}

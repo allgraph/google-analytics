@@ -1,0 +1,25 @@
+.page {
+  max-width: 1500px;
+  margin-inline: auto;
+}
+
+.title {
+  color: var(--color-heading);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.placeholder.placeholder {
+  margin-top: 20px;
+  border: 1px dashed oklch(0.869 0.022 252.894);
+  border-radius: 12px;
+  color: var(--color-secondary);
+  text-align: center;
+  font-size: 13px;
+  line-height: 19.5px;
+}
+
+.placeholder :global(.ant-card-body) {
+  padding: 40px;
+}

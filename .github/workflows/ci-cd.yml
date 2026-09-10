@@ -1,0 +1,306 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Lint, format and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Build production frontend
+        run: npm run build
+
+      - name: Add deployment marker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: printf '%s\n' "$GITHUB_SHA" > dist/.deploy-sha
+
+      - name: Upload production build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: true
+
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: ci
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    concurrency:
+      group: frontend-production
+      cancel-in-progress: false
+
+    env:
+      VPS_HOST: ${{ vars.VPS_HOST }}
+      VPS_PORT: ${{ vars.VPS_PORT }}
+      VPS_USER: ${{ vars.VPS_USER }}
+      FRONTEND_PATH: ${{ vars.FRONTEND_PATH }}
+
+    steps:
+      - name: Download tested build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVAT_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+          if ! ssh-keygen -y -f "$HOME/.ssh/deploy_key" >/dev/null 2>&1; then
+            echo "Configured SSH private key is not a valid OpenSSH private key."
+            exit 1
+          fi
+
+          SSH_OPTIONS=(
+            -p "$VPS_PORT"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=10
+          )
+
+          echo "=== SSH key fingerprint ==="
+          ssh-keygen -y -f "$HOME/.ssh/deploy_key" | ssh-keygen -lf -
+
+          echo "=== Target ==="
+          echo "Host: $VPS_HOST"
+          echo "Port: $VPS_PORT"
+          echo "User: $VPS_USER"
+
+          echo "=== known_hosts check ==="
+          ssh-keygen -F "$VPS_HOST" -f "$HOME/.ssh/known_hosts" || true
+
+          echo "=== SSH connection test ==="
+          ssh -vvv "${SSH_OPTIONS[@]}" \
+            -i "$HOME/.ssh/deploy_key" \
+            "$VPS_USER@$VPS_HOST" \
+            "echo GITHUB_SSH_OK"
+
+          echo "SSH_KEY=$HOME/.ssh/deploy_key" >> "$GITHUB_ENV"
+
+      - name: Package frontend
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          test -f dist/index.html
+          test -f dist/.deploy-sha
+
+          tar -C dist -czf "frontend-${GITHUB_SHA}.tar.gz" .
+
+      - name: Upload release to VPS
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          REMOTE_ARCHIVE="/tmp/adcalltrack-frontend-${GITHUB_SHA}.tar.gz"
+
+          scp \
+            -P "$VPS_PORT" \
+            -i "$SSH_KEY" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "frontend-${GITHUB_SHA}.tar.gz" \
+            "$VPS_USER@$VPS_HOST:$REMOTE_ARCHIVE"
+
+          echo "REMOTE_ARCHIVE=$REMOTE_ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Activate release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -p "$VPS_PORT" \
+            -i "$SSH_KEY" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            bash -s -- \
+              "$FRONTEND_PATH" \
+              "$GITHUB_SHA" \
+              "$REMOTE_ARCHIVE" <<'REMOTE'
+          set -Eeuo pipefail
+
+          FRONTEND_PATH="$1"
+          RELEASE="$2"
+          ARCHIVE="$3"
+
+          if [[ "$FRONTEND_PATH" != "/opt/adcalltrack/frontend" ]]; then
+            echo "Unexpected FRONTEND_PATH: $FRONTEND_PATH"
+            exit 1
+          fi
+
+          if [[ ! "$RELEASE" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid release SHA."
+            exit 1
+          fi
+
+          RELEASES="$FRONTEND_PATH/releases"
+          RELEASE_DIR="$RELEASES/$RELEASE"
+          STAGING_DIR="$RELEASES/.staging-$RELEASE-$$"
+
+          mkdir -p "$RELEASES"
+
+          PREVIOUS_TARGET="$(readlink "$FRONTEND_PATH/current" || true)"
+
+          cleanup() {
+            rm -rf "$STAGING_DIR"
+            rm -f "$ARCHIVE"
+          }
+
+          trap cleanup EXIT
+
+          if [[ ! -f "$RELEASE_DIR/index.html" ]]; then
+            mkdir "$STAGING_DIR"
+            tar -xzf "$ARCHIVE" -C "$STAGING_DIR"
+
+            test -f "$STAGING_DIR/index.html"
+            test -f "$STAGING_DIR/.deploy-sha"
+
+            DEPLOY_SHA="$(tr -d '\r\n' < "$STAGING_DIR/.deploy-sha")"
+
+            if [[ "$DEPLOY_SHA" != "$RELEASE" ]]; then
+              echo "Artifact SHA mismatch."
+              exit 1
+            fi
+
+            mv "$STAGING_DIR" "$RELEASE_DIR"
+          fi
+
+          NEXT_LINK="$FRONTEND_PATH/.current-$RELEASE-$$"
+
+          ln -s "releases/$RELEASE" "$NEXT_LINK"
+          mv -Tf "$NEXT_LINK" "$FRONTEND_PATH/current"
+
+          echo "Activated release: $RELEASE"
+
+          HEALTH_OK=false
+
+          for attempt in 1 2 3 4 5; do
+            DEPLOYED_SHA="$(
+              curl \
+                --fail \
+                --silent \
+                --show-error \
+                --connect-timeout 5 \
+                --max-time 10 \
+                --resolve adcalltrack.de:443:127.0.0.1 \
+                https://adcalltrack.de/.deploy-sha \
+                2>/dev/null || true
+            )"
+
+            DEPLOYED_SHA="$(printf '%s' "$DEPLOYED_SHA" | tr -d '\r\n')"
+
+            if [[ "$DEPLOYED_SHA" == "$RELEASE" ]]; then
+              HEALTH_OK=true
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [[ "$HEALTH_OK" != "true" ]]; then
+            echo "Healthcheck failed. Rolling frontend back."
+
+            if [[ -n "$PREVIOUS_TARGET" ]]; then
+              ROLLBACK_LINK="$FRONTEND_PATH/.rollback-$$"
+              ln -s "$PREVIOUS_TARGET" "$ROLLBACK_LINK"
+              mv -Tf "$ROLLBACK_LINK" "$FRONTEND_PATH/current"
+            fi
+
+            rm -rf "$RELEASE_DIR"
+
+            exit 1
+          fi
+
+          echo "Origin healthcheck passed."
+          echo "Current target: $(readlink "$FRONTEND_PATH/current")"
+          REMOTE
+
+      - name: Verify public frontend
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          for attempt in 1 2 3 4 5; do
+            DEPLOYED_SHA="$(
+              curl \
+                --fail \
+                --silent \
+                --show-error \
+                --connect-timeout 5 \
+                --max-time 15 \
+                "https://adcalltrack.de/.deploy-sha?release=${GITHUB_SHA}" \
+                2>/dev/null || true
+            )"
+
+            DEPLOYED_SHA="$(printf '%s' "$DEPLOYED_SHA" | tr -d '\r\n')"
+
+            if [[ "$DEPLOYED_SHA" == "$GITHUB_SHA" ]]; then
+              echo "Public deployment verified: $GITHUB_SHA"
+              exit 0
+            fi
+
+            sleep 3
+          done
+
+          echo "Public deployment verification failed."
+          exit 1

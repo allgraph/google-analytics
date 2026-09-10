@@ -2,3 +2,5 @@ dist
 node_modules
 project-materials
 .github/workflows
+docs/api-contract.md
+docs/openapi.yaml

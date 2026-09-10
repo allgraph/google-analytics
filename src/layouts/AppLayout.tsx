@@ -1,42 +1,42 @@
+import { Avatar, Button, Layout } from 'antd'
 import { Bell, Menu } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from '../components/Sidebar'
 import { useAppStore } from '../store/useAppStore'
+import styles from './AppLayout.module.css'
 
 export function AppLayout() {
   const toggleSidebar = useAppStore((state) => state.toggleSidebar)
+  const sidebarOpen = useAppStore((state) => state.sidebarOpen)
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <Layout className={styles.app}>
       <Sidebar />
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-16 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6">
-          <button
+      <Layout className={styles.workspace}>
+        <Layout.Header className={styles.header}>
+          <Button
             aria-label="Открыть меню"
-            className="mr-3 rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+            aria-expanded={sidebarOpen}
+            className={`${styles.iconButton} ${styles.menuButton}`}
+            icon={<Menu size={20} />}
             onClick={toggleSidebar}
-            type="button"
-          >
-            <Menu size={20} />
-          </button>
-          <span className="text-sm text-slate-500">Аккаунт: Все аккаунты</span>
-          <div className="ml-auto flex items-center gap-3">
-            <button
+            type="text"
+          />
+          <span className={styles.account}>Аккаунт: Все аккаунты</span>
+          <div className={styles.actions}>
+            <Button
               aria-label="Уведомления"
-              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-              type="button"
-            >
-              <Bell size={18} />
-            </button>
-            <div className="flex size-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
-              АК
-            </div>
+              className={styles.iconButton}
+              icon={<Bell size={18} />}
+              type="text"
+            />
+            <Avatar className={styles.avatar}>АК</Avatar>
           </div>
-        </header>
-        <main className="p-4 sm:p-6">
+        </Layout.Header>
+        <Layout.Content className={styles.content}>
           <Outlet />
-        </main>
-      </div>
-    </div>
+        </Layout.Content>
+      </Layout>
+    </Layout>
   )
 }

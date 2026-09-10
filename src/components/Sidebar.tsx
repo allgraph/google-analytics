@@ -1,3 +1,4 @@
+import { Button, Drawer, Menu } from 'antd'
 import {
   BarChart3,
   Bell,
@@ -9,9 +10,11 @@ import {
   Settings,
   X,
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { useSyncExternalStore } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import type { NavigationItem } from '../types/navigation'
+import styles from './Sidebar.module.css'
 
 const navigation: NavigationItem[] = [
   { label: 'Дашборд', path: '/dashboard', icon: Gauge },
@@ -25,63 +28,87 @@ const navigation: NavigationItem[] = [
   { label: 'Настройки', path: '/settings', icon: Settings },
 ]
 
+const desktopQuery = window.matchMedia('(min-width: 1024px)')
+const subscribeDesktop = (onChange: () => void) => {
+  desktopQuery.addEventListener('change', onChange)
+  return () => desktopQuery.removeEventListener('change', onChange)
+}
+const getDesktopSnapshot = () => desktopQuery.matches
+
 export function Sidebar() {
   const sidebarOpen = useAppStore((state) => state.sidebarOpen)
   const closeSidebar = useAppStore((state) => state.closeSidebar)
+  const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktopSnapshot)
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
 
-  return (
+  const content = (
     <>
-      {sidebarOpen && (
-        <button
-          aria-label="Закрыть меню"
-          className="fixed inset-0 z-30 bg-slate-950/30 lg:hidden"
-          onClick={closeSidebar}
-          type="button"
-        />
-      )}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-slate-200 bg-white transition-transform lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      >
-        <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
-            <GitCompareArrows size={17} />
-          </span>
-          <div>
-            <div className="text-sm font-semibold text-slate-900">Callgraph</div>
-            <div className="text-[11px] text-slate-400">Сквозная аналитика</div>
-          </div>
-          <button
+      <div className={styles.brand}>
+        <span className={styles.logo}>
+          <GitCompareArrows size={17} />
+        </span>
+        <div>
+          <div className={styles.brandName}>Callgraph</div>
+          <div className={styles.tagline}>Сквозная аналитика</div>
+        </div>
+        {!isDesktop && (
+          <Button
             aria-label="Закрыть меню"
-            className="ml-auto text-slate-400 lg:hidden"
+            className={styles.closeButton}
+            icon={<X size={18} />}
             onClick={closeSidebar}
-            type="button"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-          {navigation.map(({ label, path, icon: Icon, badge }) => (
-            <NavLink
-              className={({ isActive }) =>
-                `flex h-10 items-center gap-3 rounded-lg px-3 text-[13px] transition-colors ${isActive ? 'bg-indigo-50 font-semibold text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`
-              }
-              key={path}
-              onClick={closeSidebar}
-              to={path}
-            >
-              <Icon size={16} />
-              <span>{label}</span>
-              {badge !== undefined && (
-                <span className="ml-auto text-xs font-semibold text-rose-600">{badge}</span>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="border-t border-slate-100 p-4 text-[11px] text-slate-400">
-          Версия {import.meta.env.VITE_APP_VERSION}
-        </div>
-      </aside>
+            type="text"
+          />
+        )}
+      </div>
+      <nav aria-label="Основная навигация" className={styles.navigation}>
+        <Menu
+          className={styles.menu}
+          mode="inline"
+          inlineIndent={12}
+          selectedKeys={[pathname]}
+          onClick={({ key, domEvent }) => {
+            // Links retain native navigation (including Ctrl/Cmd-click).
+            // Menu keyboard activation targets the menu item itself.
+            if (domEvent.target instanceof Element && domEvent.target.closest('a')) return
+            navigate(key)
+            closeSidebar()
+          }}
+          items={navigation.map(({ label, path, icon: Icon, badge }) => ({
+            key: path,
+            label: (
+              <NavLink className={styles.link} onClick={closeSidebar} to={path}>
+                <Icon size={16} />
+                <span>{label}</span>
+                {badge !== undefined && <span className={styles.badge}>{badge}</span>}
+              </NavLink>
+            ),
+          }))}
+        />
+      </nav>
+      <div className={styles.version}>Версия {import.meta.env.VITE_APP_VERSION}</div>
     </>
+  )
+
+  return isDesktop ? (
+    <aside className={styles.sidebar}>{content}</aside>
+  ) : (
+    <Drawer
+      aria-label="Основная навигация"
+      placement="left"
+      size={240}
+      open={sidebarOpen}
+      onClose={closeSidebar}
+      closable={false}
+      classNames={{
+        wrapper: styles.drawerWrapper,
+        body: styles.drawerBody,
+        section: styles.drawerSection,
+        mask: styles.drawerMask,
+      }}
+    >
+      {content}
+    </Drawer>
   )
 }

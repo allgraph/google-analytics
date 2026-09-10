@@ -5,7 +5,7 @@
 ## Стек
 
 - React + TypeScript + Vite
-- Tailwind CSS
+- Ant Design 6 + CSS Modules
 - Zustand
 - React Router
 - Lucide React
@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-Development использует `.env.development`, production-сборка — `.env.production`.
+Локальный dev-сервер использует `.env.development`, production-сборка — `.env.production`. При деплое DEV pipeline подставляет переменные окружения, включая `VITE_API_BASE_URL=/api/v1`. В обоих окружениях сервер маршрутизирует этот относительный путь к соответствующему API; вручную переключать адреса не требуется.
 
 ```bash
 npm run build
@@ -40,6 +40,10 @@ src/
 
 `project-materials/` содержит локальные ТЗ, прототип и Jira-выгрузки. Каталог исключён из Git.
 
+## Оформление интерфейса
+
+Общая палитра, шрифты и токены Ant Design находятся в `src/theme.ts`. `ConfigProvider` подключает тему и русскую локаль, а палитра также доступна в CSS Modules через переменные `--color-*`. Размеры и адаптивность компонентов задаются в соседних файлах `*.module.css`; контрольные ширины — 640, 1024 и 1280 px.
+
 ## API-контракт
 
 Черновик OpenAPI первой очереди находится в [`docs/openapi.yaml`](docs/openapi.yaml). Правила пагинации, ролевого усечения данных, карта экранов и запуск мок-сервера описаны в [`docs/api-contract.md`](docs/api-contract.md).
@@ -53,8 +57,8 @@ feature/* или fix/* → develop → main
 hotfix/*              → main → develop
 ```
 
-- `develop` — общая тестовая ветка; позднее будет разворачиваться в dev-окружение.
-- `main` — стабильная версия; позднее будет разворачиваться в production.
+- `develop` — общая тестовая ветка; автоматически деплоится на https://dev.adcalltrack.de.
+- `main` — стабильная версия; автоматически деплоится на https://adcalltrack.de.
 - Прямые коммиты в `develop` и особенно в `main` не выполняются: изменения попадают в них только через Pull Request.
 
 ### Первоначальная настройка

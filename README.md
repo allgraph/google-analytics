@@ -48,6 +48,8 @@ src/
 
 Черновик OpenAPI первой очереди находится в [`docs/openapi.yaml`](docs/openapi.yaml). Правила пагинации, ролевого усечения данных, карта экранов и запуск мок-сервера описаны в [`docs/api-contract.md`](docs/api-contract.md).
 
+Фактически реализованный бэкендом API — [`docs/openapi-backend.yaml`](docs/openapi-backend.yaml); он расходится с контрактом. Реестр расхождений, карта «экран → элемент → ручка → заглушка» и список backend-задач ведутся в [`docs/api-integration-delta.md`](docs/api-integration-delta.md).
+
 ## Git workflow
 
 Используются три уровня веток:

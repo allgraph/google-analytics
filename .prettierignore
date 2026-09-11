@@ -4,3 +4,5 @@ project-materials
 .github/workflows
 docs/api-contract.md
 docs/openapi.yaml
+docs/api-integration-delta.md
+docs/openapi-backend.yaml

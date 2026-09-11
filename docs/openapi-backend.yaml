@@ -1,0 +1,986 @@
+openapi: 3.0.3
+info:
+  title: AdCallTrack Backend API
+  version: 1.0.0
+  description: |
+    Контракт backend для frontend и интеграций.
+
+    Поля с красной звёздочкой **required** обязательны. Все остальные поля и
+    query-параметры необязательны; это дополнительно указано в их описании.
+    Неизвестные JSON-поля отклоняются. Денежные значения передаются в minor units.
+servers:
+  - url: https://api.adcalltrack.de
+    description: Production
+tags:
+  - {name: System, description: Проверки состояния и служебные ресурсы}
+  - {name: Auth, description: Аутентификация и текущий пользователь}
+  - {name: Access, description: "Пользователи, роли, проекты и аудит"}
+  - {name: Tracking, description: Публичный browser tracking}
+  - {name: Structure, description: "Tenant, Google Ads аккаунты, сайты и телефоны"}
+  - {name: Telephony, description: Телефония и webhooks}
+  - {name: Calls, description: Звонки и атрибуция}
+  - {name: Call AI, description: AI-анализ звонков}
+  - {name: CRM, description: "Клиенты, лиды, заказы и финансы"}
+  - {name: Directory, description: "Услуги, операторы, мастера и смены"}
+  - {name: Analytics, description: Отчёты end-to-end аналитики}
+  - {name: Google Ads, description: Синхронизация Google Ads}
+  - {name: Attribution, description: Настройки алгоритма атрибуции}
+  - {name: Alerts, description: Правила и журнал алертов}
+security:
+  - bearerAuth: []
+paths:
+  /health/live:
+    get:
+      tags: [System]
+      summary: Liveness
+      security: []
+      responses:
+        '200': {$ref: '#/components/responses/Healthy'}
+  /health/ready:
+    get:
+      tags: [System]
+      summary: Readiness с проверкой PostgreSQL
+      security: []
+      responses:
+        '200': {$ref: '#/components/responses/Ready'}
+        '503': {$ref: '#/components/responses/Error'}
+  /analytics-tracker.js:
+    get:
+      tags: [Tracking]
+      summary: Browser tracker script
+      security: []
+      responses:
+        '200': {description: JavaScript tracker, content: {application/javascript: {schema: {type: string}}}}
+  /api/v1/auth/bootstrap:
+    post:
+      tags: [Auth]
+      summary: Однократное создание первого tenant и owner
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/Bootstrap'}
+      responses:
+        '201': {$ref: '#/components/responses/TokenPair'}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Вход
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/Login'}
+      responses:
+        '200': {$ref: '#/components/responses/TokenPair'}
+        '401': {$ref: '#/components/responses/Error'}
+        '423': {$ref: '#/components/responses/Error'}
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Ротация refresh token
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/RefreshToken'}
+      responses:
+        '200': {$ref: '#/components/responses/TokenPair'}
+        '401': {$ref: '#/components/responses/Error'}
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Текущий пользователь и scope
+      responses:
+        '200': {$ref: '#/components/responses/Data'}
+        '401': {$ref: '#/components/responses/Error'}
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Завершить текущую сессию
+      requestBody: {$ref: '#/components/requestBodies/RefreshToken'}
+      responses:
+        '204': {$ref: '#/components/responses/NoContent'}
+        '401': {$ref: '#/components/responses/Error'}
+  /api/v1/auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Завершить все сессии пользователя
+      responses:
+        '204': {$ref: '#/components/responses/NoContent'}
+  /api/v1/auth/2fa/setup:
+    post:
+      tags: [Auth]
+      summary: Получить TOTP secret и recovery codes
+      responses:
+        '200': {$ref: '#/components/responses/Data'}
+  /api/v1/auth/2fa/confirm:
+    post:
+      tags: [Auth]
+      summary: Подтвердить включение TOTP
+      requestBody: {$ref: '#/components/requestBodies/TOTPConfirm'}
+      responses:
+        '204': {$ref: '#/components/responses/NoContent'}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/auth/memberships:
+    get:
+      tags: [Access]
+      summary: Список пользователей tenant
+      parameters: [{$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Offset'}]
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Access]
+      summary: Создать пользователя
+      requestBody: {$ref: '#/components/requestBodies/CreateMembership'}
+      responses:
+        '201': {$ref: '#/components/responses/Data'}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/auth/memberships/{membership_id}:
+    parameters:
+      - {$ref: '#/components/parameters/MembershipID'}
+    put:
+      tags: [Access]
+      summary: Обновить роль, статус и scope пользователя
+      requestBody: {$ref: '#/components/requestBodies/UpdateMembership'}
+      responses: {'200': {$ref: '#/components/responses/Data'}, '400': {$ref: '#/components/responses/Error'}}
+  /api/v1/auth/users/{user_id}/revoke-sessions:
+    parameters:
+      - {$ref: '#/components/parameters/UserID'}
+    post:
+      tags: [Access]
+      summary: Отозвать все сессии пользователя
+      responses: {'204': {$ref: '#/components/responses/NoContent'}}
+  /api/v1/auth/projects:
+    get:
+      tags: [Access]
+      summary: Список проектов
+      parameters: [{$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Offset'}]
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Access]
+      summary: Создать проект
+      requestBody: {$ref: '#/components/requestBodies/CreateProject'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/auth/projects/{project_id}:
+    parameters:
+      - {$ref: '#/components/parameters/ProjectID'}
+    put:
+      tags: [Access]
+      summary: Обновить проект
+      requestBody: {$ref: '#/components/requestBodies/UpdateProject'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/auth/audit-logs:
+    get:
+      tags: [Access]
+      summary: Журнал аудита
+      parameters:
+        - {$ref: '#/components/parameters/Limit'}
+        - {$ref: '#/components/parameters/Offset'}
+        - {name: action, in: query, required: false, description: Необязательно — фильтр действия, schema: {type: string}}
+        - {name: actor_user_id, in: query, required: false, description: Необязательно — UUID автора, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+      responses: {'200': {$ref: '#/components/responses/List'}}
+  /api/v1/tracking/sessions:
+    post:
+      tags: [Tracking]
+      summary: Создать или обновить browser session
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/TrackingSession'}
+      responses: {'200': {$ref: '#/components/responses/Data'}, '422': {$ref: '#/components/responses/Error'}}
+  /api/v1/tracking/phone-clicks:
+    post:
+      tags: [Tracking]
+      summary: Зафиксировать клик по телефону
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/PhoneClick'}
+      responses: {'202': {$ref: '#/components/responses/Data'}, '422': {$ref: '#/components/responses/Error'}}
+  /api/v1/webhooks/telephony/{provider}:
+    parameters:
+      - {name: provider, in: path, required: true, description: Обязательное — код провайдера, schema: {type: string, example: normalized-json}}
+    post:
+      tags: [Telephony]
+      summary: Подписанный webhook провайдера телефонии
+      description: Требует корректную HMAC-подпись провайдера. Не использует Bearer token.
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/TelephonyWebhook'}
+      responses: {'202': {$ref: '#/components/responses/Data'}, '401': {$ref: '#/components/responses/Error'}}
+  /api/v1/tenants:
+    get:
+      tags: [Structure]
+      summary: Текущий tenant
+      responses: {'200': {$ref: '#/components/responses/List'}}
+  /api/v1/tenants/{tenant_id}:
+    parameters: [{$ref: '#/components/parameters/TenantID'}]
+    get:
+      tags: [Structure]
+      summary: Получить tenant
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    put:
+      tags: [Structure]
+      summary: Обновить tenant
+      requestBody: {$ref: '#/components/requestBodies/Tenant'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/ads-accounts:
+    get:
+      tags: [Structure]
+      summary: Список Google Ads аккаунтов
+      parameters: [{$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Offset'}]
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Structure]
+      summary: Создать Google Ads аккаунт
+      requestBody: {$ref: '#/components/requestBodies/AdsAccount'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/ads-accounts/{ads_account_id}:
+    parameters: [{$ref: '#/components/parameters/AdsAccountID'}]
+    get:
+      tags: [Structure]
+      summary: Получить Google Ads аккаунт
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    put:
+      tags: [Structure]
+      summary: Обновить Google Ads аккаунт
+      requestBody: {$ref: '#/components/requestBodies/AdsAccount'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    delete:
+      tags: [Structure]
+      summary: Удалить Google Ads аккаунт
+      responses: {'204': {$ref: '#/components/responses/NoContent'}, '409': {$ref: '#/components/responses/Error'}}
+  /api/v1/sites:
+    get:
+      tags: [Structure]
+      summary: Список сайтов
+      parameters:
+        - {$ref: '#/components/parameters/Limit'}
+        - {$ref: '#/components/parameters/Offset'}
+        - {name: ads_account_id, in: query, required: false, description: Необязательно — фильтр по Ads account UUID, schema: {type: string, format: uuid}}
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Structure]
+      summary: Создать сайт
+      requestBody: {$ref: '#/components/requestBodies/Site'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/sites/{site_id}:
+    parameters: [{$ref: '#/components/parameters/SiteID'}]
+    get:
+      tags: [Structure]
+      summary: Получить сайт
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    put:
+      tags: [Structure]
+      summary: Обновить сайт
+      requestBody: {$ref: '#/components/requestBodies/Site'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    delete:
+      tags: [Structure]
+      summary: Удалить сайт
+      responses: {'204': {$ref: '#/components/responses/NoContent'}, '409': {$ref: '#/components/responses/Error'}}
+  /api/v1/sites/{site_id}/phones:
+    parameters: [{$ref: '#/components/parameters/SiteID'}]
+    get:
+      tags: [Structure]
+      summary: Список телефонов сайта
+      parameters: [{$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Offset'}]
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Structure]
+      summary: Добавить телефон сайта
+      requestBody: {$ref: '#/components/requestBodies/SitePhone'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/sites/{site_id}/phones/{phone_id}:
+    parameters: [{$ref: '#/components/parameters/SiteID'}, {$ref: '#/components/parameters/PhoneID'}]
+    get:
+      tags: [Structure]
+      summary: Получить телефон сайта
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    put:
+      tags: [Structure]
+      summary: Обновить телефон сайта
+      requestBody: {$ref: '#/components/requestBodies/SitePhone'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    delete:
+      tags: [Structure]
+      summary: Удалить телефон сайта
+      responses: {'204': {$ref: '#/components/responses/NoContent'}}
+  /api/v1/telephony/connections:
+    get:
+      tags: [Telephony]
+      summary: Список подключений телефонии
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Telephony]
+      summary: Создать подключение телефонии
+      requestBody: {$ref: '#/components/requestBodies/TelephonyConnection'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/telephony/connections/{connection_id}:
+    parameters: [{$ref: '#/components/parameters/ConnectionID'}]
+    put:
+      tags: [Telephony]
+      summary: Изменить статус подключения
+      requestBody: {$ref: '#/components/requestBodies/StatusOnly'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/clients/resolve:
+    post:
+      tags: [CRM]
+      summary: Найти либо создать клиента по телефону
+      requestBody: {$ref: '#/components/requestBodies/ResolveClient'}
+      responses: {'200': {$ref: '#/components/responses/Data'}, '201': {$ref: '#/components/responses/Data'}}
+  /api/v1/clients/{client_id}:
+    parameters: [{$ref: '#/components/parameters/ClientID'}]
+    get:
+      tags: [CRM]
+      summary: Получить клиента
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/leads:
+    post:
+      tags: [CRM]
+      summary: Создать лид
+      requestBody: {$ref: '#/components/requestBodies/CreateLead'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/leads/{lead_id}:
+    parameters: [{$ref: '#/components/parameters/LeadID'}]
+    get:
+      tags: [CRM]
+      summary: Получить лид
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/leads/{lead_id}/status:
+    parameters: [{$ref: '#/components/parameters/LeadID'}]
+    patch:
+      tags: [CRM]
+      summary: Изменить статус лида
+      requestBody: {$ref: '#/components/requestBodies/ChangeLeadStatus'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/orders:
+    post:
+      tags: [CRM]
+      summary: Создать заказ
+      requestBody: {$ref: '#/components/requestBodies/CreateOrder'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/orders/{order_id}:
+    parameters: [{$ref: '#/components/parameters/OrderID'}]
+    get:
+      tags: [CRM]
+      summary: Получить заказ
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/orders/{order_id}/status:
+    parameters: [{$ref: '#/components/parameters/OrderID'}]
+    patch:
+      tags: [CRM]
+      summary: Изменить статус заказа
+      requestBody: {$ref: '#/components/requestBodies/ChangeOrderStatus'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/orders/{order_id}/financials:
+    parameters: [{$ref: '#/components/parameters/OrderID'}]
+    put:
+      tags: [CRM]
+      summary: Записать финансовые показатели заказа
+      requestBody: {$ref: '#/components/requestBodies/Financials'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/services:
+    get:
+      tags: [Directory]
+      summary: Список услуг
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Directory]
+      summary: Создать услугу
+      requestBody: {$ref: '#/components/requestBodies/Service'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/operators:
+    get:
+      tags: [Directory]
+      summary: Список операторов
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Directory]
+      summary: Создать оператора
+      requestBody: {$ref: '#/components/requestBodies/Operator'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/masters:
+    get:
+      tags: [Directory]
+      summary: Список мастеров
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Directory]
+      summary: Создать мастера
+      requestBody: {$ref: '#/components/requestBodies/Master'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/operators/{operator_id}/shifts:
+    parameters: [{$ref: '#/components/parameters/OperatorID'}]
+    post:
+      tags: [Directory]
+      summary: Открыть смену оператора
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/operator-shifts/{shift_id}/close:
+    parameters: [{$ref: '#/components/parameters/ShiftID'}]
+    post:
+      tags: [Directory]
+      summary: Закрыть смену оператора
+      responses: {'200': {$ref: '#/components/responses/Data'}, '409': {$ref: '#/components/responses/Error'}}
+  /api/v1/calls:
+    get:
+      tags: [Calls]
+      summary: Список звонков
+      parameters:
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+        - {$ref: '#/components/parameters/Limit'}
+        - {$ref: '#/components/parameters/Offset'}
+        - {name: site_id, in: query, required: false, description: Необязательно — UUID сайта, schema: {type: string, format: uuid}}
+        - {name: status, in: query, required: false, description: Необязательно — статус звонка, schema: {type: string}}
+      responses: {'200': {$ref: '#/components/responses/List'}}
+  /api/v1/calls/{call_id}:
+    parameters: [{$ref: '#/components/parameters/CallID'}]
+    get:
+      tags: [Calls]
+      summary: Карточка звонка и кандидаты атрибуции
+      responses: {'200': {$ref: '#/components/responses/Data'}, '404': {$ref: '#/components/responses/Error'}}
+  /api/v1/calls/{call_id}/attribution-reviews:
+    parameters: [{$ref: '#/components/parameters/CallID'}]
+    post:
+      tags: [Calls]
+      summary: Ручная проверка атрибуции
+      requestBody: {$ref: '#/components/requestBodies/AttributionReview'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/calls/{call_id}/analysis-jobs:
+    parameters: [{$ref: '#/components/parameters/CallID'}]
+    post:
+      tags: [Call AI]
+      summary: Поставить AI-анализ звонка в очередь
+      responses: {'202': {$ref: '#/components/responses/Data'}}
+  /api/v1/calls/{call_id}/analysis:
+    parameters: [{$ref: '#/components/parameters/CallID'}]
+    get:
+      tags: [Call AI]
+      summary: Получить AI-анализ звонка
+      responses: {'200': {$ref: '#/components/responses/Data'}, '404': {$ref: '#/components/responses/Error'}}
+  /api/v1/calls/{call_id}/analysis/confirm:
+    parameters: [{$ref: '#/components/parameters/CallID'}]
+    post:
+      tags: [Call AI]
+      summary: Подтвердить AI-анализ человеком
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/analytics/overview:
+    get:
+      tags: [Analytics]
+      summary: Сводные KPI
+      parameters: [{$ref: '#/components/parameters/From'}, {$ref: '#/components/parameters/To'}, {$ref: '#/components/parameters/AdsAccountFilter'}, {$ref: '#/components/parameters/SiteFilter'}, {$ref: '#/components/parameters/CampaignFilter'}, {$ref: '#/components/parameters/AdGroupFilter'}, {$ref: '#/components/parameters/KeywordFilter'}, {$ref: '#/components/parameters/SearchTermFilter'}, {$ref: '#/components/parameters/AdFilter'}, {$ref: '#/components/parameters/DeviceFilter'}, {$ref: '#/components/parameters/CountryFilter'}, {$ref: '#/components/parameters/CityFilter'}, {$ref: '#/components/parameters/DistrictFilter'}, {$ref: '#/components/parameters/ServiceFilter'}, {$ref: '#/components/parameters/OperatorFilter'}, {$ref: '#/components/parameters/MasterFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/ConfidenceFilter'}]
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/analytics/breakdown:
+    get:
+      tags: [Analytics]
+      summary: Разрез аналитики
+      parameters:
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+        - {$ref: '#/components/parameters/AdsAccountFilter'}
+        - {$ref: '#/components/parameters/SiteFilter'}
+        - {$ref: '#/components/parameters/CampaignFilter'}
+        - {$ref: '#/components/parameters/AdGroupFilter'}
+        - {$ref: '#/components/parameters/KeywordFilter'}
+        - {$ref: '#/components/parameters/SearchTermFilter'}
+        - {$ref: '#/components/parameters/AdFilter'}
+        - {$ref: '#/components/parameters/DeviceFilter'}
+        - {$ref: '#/components/parameters/CountryFilter'}
+        - {$ref: '#/components/parameters/CityFilter'}
+        - {$ref: '#/components/parameters/DistrictFilter'}
+        - {$ref: '#/components/parameters/ServiceFilter'}
+        - {$ref: '#/components/parameters/OperatorFilter'}
+        - {$ref: '#/components/parameters/MasterFilter'}
+        - {$ref: '#/components/parameters/StatusFilter'}
+        - {$ref: '#/components/parameters/ConfidenceFilter'}
+        - {$ref: '#/components/parameters/Limit'}
+        - {$ref: '#/components/parameters/Offset'}
+        - {name: group_by, in: query, required: true, description: Обязательное — измерение группировки, schema: {type: string, enum: [ads_account, site, campaign, ad_group, keyword, search_term, ad, device, country, city, district, service, operator, master, status, confidence]}}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/analytics/map:
+    get:
+      tags: [Analytics]
+      summary: Географический отчёт
+      parameters: [{$ref: '#/components/parameters/From'}, {$ref: '#/components/parameters/To'}, {$ref: '#/components/parameters/AdsAccountFilter'}, {$ref: '#/components/parameters/SiteFilter'}, {$ref: '#/components/parameters/CampaignFilter'}, {$ref: '#/components/parameters/AdGroupFilter'}, {$ref: '#/components/parameters/KeywordFilter'}, {$ref: '#/components/parameters/SearchTermFilter'}, {$ref: '#/components/parameters/AdFilter'}, {$ref: '#/components/parameters/DeviceFilter'}, {$ref: '#/components/parameters/CountryFilter'}, {$ref: '#/components/parameters/CityFilter'}, {$ref: '#/components/parameters/DistrictFilter'}, {$ref: '#/components/parameters/ServiceFilter'}, {$ref: '#/components/parameters/OperatorFilter'}, {$ref: '#/components/parameters/MasterFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/ConfidenceFilter'}, {$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Offset'}]
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/analytics/reports/{report}:
+    parameters:
+      - {name: report, in: path, required: true, description: Обязательное — имя преднастроенного отчёта, schema: {type: string}}
+    get:
+      tags: [Analytics]
+      summary: Преднастроенный отчёт
+      parameters: [{$ref: '#/components/parameters/From'}, {$ref: '#/components/parameters/To'}, {$ref: '#/components/parameters/AdsAccountFilter'}, {$ref: '#/components/parameters/SiteFilter'}, {$ref: '#/components/parameters/CampaignFilter'}, {$ref: '#/components/parameters/AdGroupFilter'}, {$ref: '#/components/parameters/KeywordFilter'}, {$ref: '#/components/parameters/SearchTermFilter'}, {$ref: '#/components/parameters/AdFilter'}, {$ref: '#/components/parameters/DeviceFilter'}, {$ref: '#/components/parameters/CountryFilter'}, {$ref: '#/components/parameters/CityFilter'}, {$ref: '#/components/parameters/DistrictFilter'}, {$ref: '#/components/parameters/ServiceFilter'}, {$ref: '#/components/parameters/OperatorFilter'}, {$ref: '#/components/parameters/MasterFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/ConfidenceFilter'}, {$ref: '#/components/parameters/Limit'}, {$ref: '#/components/parameters/Offset'}]
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/google-ads/accounts/{ads_account_id}/sync:
+    parameters: [{$ref: '#/components/parameters/AdsAccountID'}]
+    post:
+      tags: [Google Ads]
+      summary: Синхронизировать Ads account
+      parameters:
+        - {name: through, in: query, required: false, description: Необязательно — синхронизировать до момента RFC3339, schema: {type: string, format: date-time}}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/google-ads/accounts/{ads_account_id}/reconcile:
+    parameters: [{$ref: '#/components/parameters/AdsAccountID'}]
+    post:
+      tags: [Google Ads]
+      summary: Пересчитать данные Ads за день
+      parameters:
+        - {name: day, in: query, required: false, description: Необязательно — дата YYYY-MM-DD; по умолчанию текущий день, schema: {type: string, format: date}}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/attribution/config:
+    get:
+      tags: [Attribution]
+      summary: Получить настройки scoring
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+    put:
+      tags: [Attribution]
+      summary: Обновить настройки scoring
+      requestBody: {$ref: '#/components/requestBodies/AttributionConfig'}
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/alert-rules:
+    get:
+      tags: [Alerts]
+      summary: Список правил алертов
+      responses: {'200': {$ref: '#/components/responses/List'}}
+    post:
+      tags: [Alerts]
+      summary: Создать правило алерта
+      requestBody: {$ref: '#/components/requestBodies/AlertRule'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/telegram-destinations:
+    post:
+      tags: [Alerts]
+      summary: Добавить Telegram destination
+      requestBody: {$ref: '#/components/requestBodies/TelegramDestination'}
+      responses: {'201': {$ref: '#/components/responses/Data'}}
+  /api/v1/alerts:
+    get:
+      tags: [Alerts]
+      summary: Журнал алертов
+      parameters:
+        - {name: status, in: query, required: false, description: Необязательно — open/acknowledged/resolved, schema: {type: string}}
+        - {$ref: '#/components/parameters/Limit'}
+      responses: {'200': {$ref: '#/components/responses/List'}}
+  /api/v1/alerts/{alert_id}/acknowledge:
+    parameters: [{$ref: '#/components/parameters/AlertID'}]
+    post:
+      tags: [Alerts]
+      summary: Подтвердить ознакомление с алертом
+      responses: {'200': {$ref: '#/components/responses/Data'}}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token из login/refresh без префикса Bearer.
+  parameters:
+    Limit: {name: limit, in: query, required: false, description: Необязательно — размер страницы, schema: {type: integer, minimum: 1, default: 100}}
+    Offset: {name: offset, in: query, required: false, description: Необязательно — смещение, schema: {type: integer, minimum: 0, default: 0}}
+    From: {name: from, in: query, required: false, description: Необязательно — начало периода RFC3339 или YYYY-MM-DD, schema: {type: string}}
+    To: {name: to, in: query, required: false, description: Необязательно — конец периода RFC3339 или YYYY-MM-DD, schema: {type: string}}
+    AdsAccountFilter: {name: ads_account_id, in: query, required: false, description: Необязательно — Ads account UUID, schema: {type: string, format: uuid}}
+    SiteFilter: {name: site_id, in: query, required: false, description: Необязательно — site UUID, schema: {type: string, format: uuid}}
+    CampaignFilter: {name: campaign_id, in: query, required: false, description: Необязательно — Google Ads campaign ID, schema: {type: string}}
+    AdGroupFilter: {name: ad_group_id, in: query, required: false, description: Необязательно — Google Ads ad group ID, schema: {type: string}}
+    KeywordFilter: {name: keyword, in: query, required: false, description: Необязательно — keyword ID/значение, schema: {type: string}}
+    SearchTermFilter: {name: search_term, in: query, required: false, description: Необязательно — поисковая фраза, schema: {type: string}}
+    AdFilter: {name: ad_id, in: query, required: false, description: Необязательно — Google Ads ad ID, schema: {type: string}}
+    DeviceFilter: {name: device, in: query, required: false, description: Необязательно — тип устройства, schema: {type: string}}
+    CountryFilter: {name: country, in: query, required: false, description: Необязательно — страна, schema: {type: string}}
+    CityFilter: {name: city, in: query, required: false, description: Необязательно — город, schema: {type: string}}
+    DistrictFilter: {name: district, in: query, required: false, description: Необязательно — район, schema: {type: string}}
+    ServiceFilter: {name: service_id, in: query, required: false, description: Необязательно — service UUID, schema: {type: string, format: uuid}}
+    OperatorFilter: {name: operator_id, in: query, required: false, description: Необязательно — operator UUID, schema: {type: string, format: uuid}}
+    MasterFilter: {name: master_id, in: query, required: false, description: Необязательно — master UUID, schema: {type: string, format: uuid}}
+    StatusFilter: {name: status, in: query, required: false, description: Необязательно — статус бизнес-сущности, schema: {type: string}}
+    ConfidenceFilter: {name: confidence, in: query, required: false, description: Необязательно — confidence атрибуции, schema: {type: string}}
+    TenantID: {name: tenant_id, in: path, required: true, description: Обязательное — UUID текущего tenant, schema: {type: string, format: uuid}}
+    MembershipID: {name: membership_id, in: path, required: true, description: Обязательное — UUID membership, schema: {type: string, format: uuid}}
+    UserID: {name: user_id, in: path, required: true, description: Обязательное — UUID пользователя, schema: {type: string, format: uuid}}
+    ProjectID: {name: project_id, in: path, required: true, description: Обязательное — UUID проекта, schema: {type: string, format: uuid}}
+    AdsAccountID: {name: ads_account_id, in: path, required: true, description: Обязательное — UUID Ads account, schema: {type: string, format: uuid}}
+    SiteID: {name: site_id, in: path, required: true, description: Обязательное — UUID сайта, schema: {type: string, format: uuid}}
+    PhoneID: {name: phone_id, in: path, required: true, description: Обязательное — UUID телефона сайта, schema: {type: string, format: uuid}}
+    ConnectionID: {name: connection_id, in: path, required: true, description: Обязательное — UUID подключения, schema: {type: string, format: uuid}}
+    ClientID: {name: client_id, in: path, required: true, description: Обязательное — UUID клиента, schema: {type: string, format: uuid}}
+    LeadID: {name: lead_id, in: path, required: true, description: Обязательное — UUID лида, schema: {type: string, format: uuid}}
+    OrderID: {name: order_id, in: path, required: true, description: Обязательное — UUID заказа, schema: {type: string, format: uuid}}
+    OperatorID: {name: operator_id, in: path, required: true, description: Обязательное — UUID оператора, schema: {type: string, format: uuid}}
+    ShiftID: {name: shift_id, in: path, required: true, description: Обязательное — UUID смены, schema: {type: string, format: uuid}}
+    CallID: {name: call_id, in: path, required: true, description: Обязательное — UUID звонка, schema: {type: string, format: uuid}}
+    AlertID: {name: alert_id, in: path, required: true, description: Обязательное — UUID алерта, schema: {type: string, format: uuid}}
+  requestBodies:
+    Bootstrap: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BootstrapRequest'}}}}
+    Login: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/LoginRequest'}}}}
+    RefreshToken: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RefreshRequest'}}}}
+    TOTPConfirm: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TOTPConfirmRequest'}}}}
+    CreateMembership: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateMembershipRequest'}}}}
+    UpdateMembership: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateMembershipRequest'}}}}
+    CreateProject: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateProjectRequest'}}}}
+    UpdateProject: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateProjectRequest'}}}}
+    TrackingSession: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TrackingSessionRequest'}}}}
+    PhoneClick: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PhoneClickRequest'}}}}
+    TelephonyWebhook: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TelephonyWebhookRequest'}}}}
+    Tenant: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TenantRequest'}}}}
+    AdsAccount: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AdsAccountRequest'}}}}
+    Site: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SiteRequest'}}}}
+    SitePhone: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SitePhoneRequest'}}}}
+    TelephonyConnection: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TelephonyConnectionRequest'}}}}
+    StatusOnly: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/StatusRequest'}}}}
+    ResolveClient: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ResolveClientRequest'}}}}
+    CreateLead: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateLeadRequest'}}}}
+    ChangeLeadStatus: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeLeadStatusRequest'}}}}
+    CreateOrder: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateOrderRequest'}}}}
+    ChangeOrderStatus: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeOrderStatusRequest'}}}}
+    Financials: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/FinancialsRequest'}}}}
+    Service: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ServiceRequest'}}}}
+    Operator: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OperatorRequest'}}}}
+    Master: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/MasterRequest'}}}}
+    AttributionReview: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AttributionReviewRequest'}}}}
+    AttributionConfig: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AttributionConfigRequest'}}}}
+    AlertRule: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AlertRuleRequest'}}}}
+    TelegramDestination: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TelegramDestinationRequest'}}}}
+  responses:
+    Healthy: {description: Процесс работает, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, example: ok}}}}}}
+    Ready: {description: Процесс и PostgreSQL готовы, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, example: ready}}}}}}
+    NoContent: {description: Операция выполнена; response body отсутствует}
+    Data: {description: Успешный ответ, content: {application/json: {schema: {$ref: '#/components/schemas/DataEnvelope'}}}}
+    List: {description: Успешный список, content: {application/json: {schema: {$ref: '#/components/schemas/ListEnvelope'}}}}
+    TokenPair: {description: Access и refresh tokens, content: {application/json: {schema: {$ref: '#/components/schemas/TokenEnvelope'}}}}
+    Error: {description: Ошибка, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}}
+  schemas:
+    DataEnvelope:
+      type: object
+      required: [data]
+      properties: {data: {type: object, additionalProperties: true}}
+    ListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: {type: array, items: {type: object, additionalProperties: true}}
+        pagination: {$ref: '#/components/schemas/Pagination'}
+    Pagination:
+      type: object
+      required: [limit, offset]
+      properties: {limit: {type: integer}, offset: {type: integer}}
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code: {type: string, example: INVALID_REQUEST}
+            message: {type: string}
+            request_id: {type: string}
+    TokenEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [user_id, tenant_id, role, token_type, access_token, access_expires_at, refresh_token, refresh_expires_at]
+          properties:
+            user_id: {type: string, format: uuid}
+            tenant_id: {type: string, format: uuid}
+            role: {type: string, enum: [owner, manager, marketer, operator, accountant, client, technical_admin]}
+            token_type: {type: string, example: Bearer}
+            access_token: {type: string}
+            access_expires_at: {type: string, format: date-time}
+            refresh_token: {type: string}
+            refresh_expires_at: {type: string, format: date-time}
+    BootstrapRequest:
+      type: object
+      required: [tenant_name, tenant_slug, email, password]
+      properties:
+        tenant_id: {type: string, format: uuid, description: Необязательно — существующий tenant; обычно не передаётся}
+        tenant_name: {type: string, description: Обязательное — название компании, minLength: 1}
+        tenant_slug: {type: string, description: Обязательное — уникальный slug, pattern: '^[a-z0-9][a-z0-9-]*$'}
+        email: {type: string, format: email, description: Обязательное — email owner}
+        password: {type: string, format: password, description: Обязательное — пароль owner, minLength: 12}
+    LoginRequest:
+      type: object
+      required: [tenant_id, email, password]
+      properties:
+        tenant_id: {type: string, format: uuid, description: Обязательное — UUID tenant}
+        email: {type: string, format: email, description: Обязательное — email пользователя}
+        password: {type: string, format: password, description: Обязательное — пароль}
+        totp_code: {type: string, description: "Необязательно — 6 цифр, если включена 2FA"}
+        recovery_code: {type: string, description: Необязательно — recovery code вместо TOTP}
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties: {refresh_token: {type: string, description: Обязательное — действующий refresh token}}
+    TOTPConfirmRequest:
+      type: object
+      required: [code]
+      properties: {code: {type: string, pattern: '^[0-9]{6}$', description: Обязательное — текущий шестизначный TOTP}}
+    CreateMembershipRequest:
+      type: object
+      required: [email, password, role]
+      properties:
+        email: {type: string, format: email, description: Обязательное}
+        password: {type: string, format: password, minLength: 12, description: Обязательное}
+        role: {type: string, enum: [owner, manager, marketer, operator, accountant, client, technical_admin], description: Обязательное}
+        status: {type: string, description: Необязательно — при создании игнорируется}
+        site_ids: {type: array, description: Необязательно — пустой список означает все сайты, items: {type: string, format: uuid}}
+        project_ids: {type: array, description: Необязательно — пустой список означает все проекты, items: {type: string, format: uuid}}
+    UpdateMembershipRequest:
+      type: object
+      required: [role, status]
+      properties:
+        email: {type: string, description: Необязательно — при обновлении игнорируется}
+        password: {type: string, description: Необязательно — при обновлении игнорируется}
+        role: {type: string, enum: [owner, manager, marketer, operator, accountant, client, technical_admin], description: Обязательное}
+        status: {type: string, enum: [active, inactive], description: Обязательное}
+        site_ids: {type: array, description: Необязательно — пустой список означает все сайты, items: {type: string, format: uuid}}
+        project_ids: {type: array, description: Необязательно — пустой список означает все проекты, items: {type: string, format: uuid}}
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, description: Обязательное}
+        status: {type: string, description: Необязательно — при создании игнорируется}
+        site_ids: {type: array, description: Необязательно, items: {type: string, format: uuid}}
+    UpdateProjectRequest:
+      type: object
+      required: [name, status]
+      properties:
+        name: {type: string, description: Обязательное}
+        status: {type: string, enum: [active, inactive], description: Обязательное}
+        site_ids: {type: array, description: Необязательно, items: {type: string, format: uuid}}
+    AttributionFields:
+      type: object
+      properties:
+        source: {type: string, description: Необязательно — direct/google/etc.}
+        landing_page: {type: string, description: Необязательно}
+        referrer: {type: string, description: Необязательно}
+        google_ads_customer_id: {type: string, description: Необязательно}
+        gclid: {type: string, description: Необязательно}
+        gbraid: {type: string, description: Необязательно}
+        wbraid: {type: string, description: Необязательно}
+        utm_source: {type: string, description: Необязательно}
+        utm_medium: {type: string, description: Необязательно}
+        utm_campaign: {type: string, description: Необязательно}
+        utm_content: {type: string, description: Необязательно}
+        utm_term: {type: string, description: Необязательно}
+        campaign_id: {type: string, description: Необязательно}
+        adgroup_id: {type: string, description: Необязательно}
+        creative_id: {type: string, description: Необязательно}
+        keyword: {type: string, description: Необязательно}
+        matchtype: {type: string, description: Необязательно}
+        device: {type: string, description: Необязательно}
+        network: {type: string, description: Необязательно}
+        location_id: {type: string, description: Необязательно}
+    TrackingSessionRequest:
+      allOf:
+        - {$ref: '#/components/schemas/AttributionFields'}
+        - type: object
+          required: [visitor_id, session_id, site_id, first_seen_at, last_seen_at]
+          properties:
+            visitor_id: {type: string, description: Обязательное — стабильный visitor ID}
+            session_id: {type: string, description: Обязательное — idempotency/session ID}
+            site_id: {type: string, format: uuid, description: Обязательное}
+            first_seen_at: {type: string, format: date-time, description: Обязательное}
+            last_seen_at: {type: string, format: date-time, description: Обязательное}
+    PhoneClickRequest:
+      allOf:
+        - {$ref: '#/components/schemas/AttributionFields'}
+        - type: object
+          required: [phone_click_id, site_id, visitor_id, session_id, clicked_phone, client_event_at, current_page]
+          properties:
+            phone_click_id: {type: string, description: Обязательное — idempotency ID}
+            site_id: {type: string, format: uuid, description: Обязательное}
+            visitor_id: {type: string, description: Обязательное}
+            session_id: {type: string, description: Обязательное}
+            clicked_phone: {type: string, description: Обязательное}
+            client_event_at: {type: string, format: date-time, description: Обязательное}
+            current_page: {type: string, description: Обязательное}
+    TelephonyWebhookRequest:
+      type: object
+      required: [external_account_id, external_call_id, caller_phone, called_phone, started_at, status]
+      properties:
+        external_account_id: {type: string, description: Обязательное}
+        external_call_id: {type: string, description: Обязательное — idempotency key}
+        caller_phone: {type: string, description: Обязательное}
+        called_phone: {type: string, description: Обязательное}
+        started_at: {type: string, format: date-time, description: Обязательное}
+        answered_at: {type: string, format: date-time, nullable: true, description: Необязательно}
+        ended_at: {type: string, format: date-time, nullable: true, description: Необязательно}
+        wait_duration_ms: {type: integer, format: int64, description: Необязательно, default: 0}
+        talk_duration_ms: {type: integer, format: int64, description: Необязательно, default: 0}
+        status: {type: string, description: Обязательное}
+        operator_id: {type: string, description: Необязательно}
+        recording_url: {type: string, format: uri, description: Необязательно}
+        is_repeat: {type: boolean, description: Необязательно, default: false}
+    TenantRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name: {type: string, description: Обязательное}
+        slug: {type: string, description: Обязательное}
+        status: {type: string, enum: [active, inactive], description: Необязательно; по умолчанию active}
+    AdsAccountRequest:
+      type: object
+      required: [name, google_ads_customer_id, currency_code, country_code]
+      properties:
+        name: {type: string, description: Обязательное}
+        google_ads_customer_id: {type: string, description: "Обязательное — 10 цифр, дефисы допустимы"}
+        currency_code: {type: string, minLength: 3, maxLength: 3, description: Обязательное — ISO 4217}
+        country_code: {type: string, minLength: 2, maxLength: 2, description: Обязательное — ISO 3166-1 alpha-2}
+        status: {type: string, enum: [active, inactive], description: Необязательно; по умолчанию active}
+    SiteRequest:
+      type: object
+      required: [ads_account_id, name, domain, country_code, city, currency_code]
+      properties:
+        ads_account_id: {type: string, format: uuid, description: Обязательное}
+        name: {type: string, description: Обязательное}
+        domain: {type: string, description: Обязательное — hostname без пути}
+        country_code: {type: string, description: Обязательное — ISO alpha-2}
+        city: {type: string, minLength: 1, maxLength: 120, description: Обязательное}
+        currency_code: {type: string, description: Обязательное — ISO 4217}
+        service_directions: {type: array, description: Необязательно, items: {type: string}}
+        status: {type: string, enum: [active, inactive], description: Необязательно; по умолчанию active}
+    SitePhoneRequest:
+      type: object
+      required: [phone_number]
+      properties:
+        phone_number: {type: string, description: Обязательное — номер в международном формате}
+        label: {type: string, nullable: true, description: Необязательно}
+        is_primary: {type: boolean, description: Необязательно, default: false}
+        status: {type: string, enum: [active, inactive], description: Необязательно; по умолчанию active}
+    TelephonyConnectionRequest:
+      type: object
+      required: [provider, external_account_id]
+      properties:
+        provider: {type: string, description: Обязательное}
+        external_account_id: {type: string, description: Обязательное}
+    StatusRequest:
+      type: object
+      required: [status]
+      properties: {status: {type: string, enum: [active, inactive], description: Обязательное}}
+    ResolveClientRequest:
+      type: object
+      required: [phone_number]
+      properties:
+        phone_number: {type: string, description: Обязательное}
+        source: {type: object, additionalProperties: true, description: Необязательно — произвольный JSON source}
+        attributed_session_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        contacted_at: {type: string, format: date-time, nullable: true, description: Необязательно}
+    Location:
+      type: object
+      properties:
+        country_code: {type: string, description: Необязательно}
+        city: {type: string, description: Необязательно}
+        district: {type: string, description: Необязательно}
+        postal_code: {type: string, description: Необязательно}
+        street_address: {type: string, description: Необязательно}
+        latitude: {type: number, minimum: -90, maximum: 90, nullable: true, description: Необязательно}
+        longitude: {type: number, minimum: -180, maximum: 180, nullable: true, description: Необязательно}
+        service_zone: {type: string, description: Необязательно}
+    CreateLeadRequest:
+      type: object
+      required: [client_id, site_id, currency_code]
+      properties:
+        client_id: {type: string, format: uuid, description: Обязательное}
+        call_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        site_id: {type: string, format: uuid, description: Обязательное}
+        service_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        operator_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        master_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        location: {$ref: '#/components/schemas/Location'}
+        scheduled_at: {type: string, format: date-time, nullable: true, description: Необязательно}
+        preliminary_price_minor: {type: integer, format: int64, minimum: 0, nullable: true, description: Необязательно}
+        final_amount_minor: {type: integer, format: int64, minimum: 0, nullable: true, description: Необязательно}
+        currency_code: {type: string, description: Обязательное — ISO 4217}
+    ChangeLeadStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [new_call, missed, spam, unsuitable, price_request, qualified, master_assigned, master_departed, completed, paid, cancelled, refund, repeat_order], description: Обязательное}
+        reason: {type: string, description: Необязательно — причина изменения}
+    CreateOrderRequest:
+      type: object
+      required: [client_id, site_id, currency_code]
+      properties:
+        client_id: {type: string, format: uuid, description: Обязательное}
+        lead_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        site_id: {type: string, format: uuid, description: Обязательное}
+        service_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        master_id: {type: string, format: uuid, nullable: true, description: Необязательно}
+        location: {$ref: '#/components/schemas/Location'}
+        preliminary_price_minor: {type: integer, format: int64, minimum: 0, nullable: true, description: Необязательно}
+        final_amount_minor: {type: integer, format: int64, minimum: 0, nullable: true, description: Необязательно}
+        currency_code: {type: string, description: Обязательное — ISO 4217}
+    ChangeOrderStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [draft, confirmed, master_assigned, master_departed, completed, paid, cancelled, refund], description: Обязательное}
+        reason: {type: string, description: Необязательно — причина изменения}
+    FinancialsRequest:
+      type: object
+      required: [currency_code, revenue_minor, master_payout_minor, materials_minor, transport_minor, payment_fees_minor, discount_minor, refunds_minor, other_direct_costs_minor]
+      properties:
+        currency_code: {type: string, description: Обязательное — ISO 4217}
+        revenue_minor: {type: integer, format: int64, description: Обязательное}
+        master_payout_minor: {type: integer, format: int64, minimum: 0, description: Обязательное}
+        materials_minor: {type: integer, format: int64, minimum: 0, description: Обязательное}
+        transport_minor: {type: integer, format: int64, minimum: 0, description: Обязательное}
+        payment_fees_minor: {type: integer, format: int64, minimum: 0, description: Обязательное}
+        discount_minor: {type: integer, format: int64, minimum: 0, description: Обязательное}
+        refunds_minor: {type: integer, format: int64, minimum: 0, description: Обязательное}
+        other_direct_costs_minor: {type: integer, format: int64, minimum: 0, description: Обязательное}
+    ServiceRequest:
+      type: object
+      required: [name]
+      properties: {name: {type: string, maxLength: 200, description: Обязательное}}
+    OperatorRequest:
+      type: object
+      required: [display_name]
+      properties:
+        display_name: {type: string, maxLength: 200, description: Обязательное}
+        external_id: {type: string, maxLength: 200, description: Необязательно}
+    MasterRequest:
+      type: object
+      required: [display_name]
+      properties:
+        display_name: {type: string, maxLength: 200, description: Обязательное}
+        phone_number: {type: string, description: Необязательно}
+    AttributionReviewRequest:
+      type: object
+      required: [outcome, reason]
+      properties:
+        selected_phone_click_id: {type: string, format: uuid, nullable: true, description: Необязательно — выбранный click}
+        outcome: {type: string, enum: [confirmed, overridden, unattributed], description: Обязательное — для unattributed selected_phone_click_id не передаётся; для остальных обязателен}
+        reason: {type: string, minLength: 1, maxLength: 2000, description: Обязательное — пояснение решения}
+    AttributionConfigRequest:
+      type: object
+      required: [algorithm_version, max_lookback_ms, close_candidate_window_ms, time_bands, weights, thresholds]
+      properties:
+        algorithm_version: {type: string, description: Обязательное}
+        max_lookback_ms: {type: integer, format: int64, description: Обязательное}
+        close_candidate_window_ms: {type: integer, format: int64, description: Обязательное}
+        time_bands:
+          type: array
+          description: Обязательное
+          items:
+            type: object
+            required: [max_delta_ms, points, rule]
+            properties: {max_delta_ms: {type: integer, format: int64}, points: {type: integer}, rule: {type: string}}
+        weights: {type: object, description: Обязательное — site_match single_candidate mobile google_ads free_click multiple_close already_linked desktop, additionalProperties: {type: integer}}
+        thresholds: {type: object, description: Обязательное — high probable review, required: [high, probable, review], properties: {high: {type: integer}, probable: {type: integer}, review: {type: integer}}}
+    AlertRuleRequest:
+      type: object
+      required: [rule_type, name, config, evaluation_interval_seconds]
+      properties:
+        rule_type: {type: string, description: Обязательное}
+        name: {type: string, description: Обязательное}
+        config:
+          type: object
+          required: [threshold, lookback_hours]
+          description: Обязательное
+          properties:
+            threshold: {type: number, description: Обязательное}
+            lookback_hours: {type: integer, description: Обязательное}
+            severity: {type: string, description: Необязательно; по умолчанию warning}
+        evaluation_interval_seconds: {type: integer, minimum: 1, description: Обязательное}
+    TelegramDestinationRequest:
+      type: object
+      required: [name, chat_id]
+      properties:
+        name: {type: string, description: Обязательное}
+        chat_id: {type: string, description: Обязательное}

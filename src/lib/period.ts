@@ -101,7 +101,10 @@ export interface PeriodQueryParams {
  * Перевод живёт здесь — на границе «состояние экрана → запрос», а не в `resolvePeriod`:
  * сам период остаётся в именах контракта, как и `ReportFilter`.
  */
-export function periodQueryParams(preset: PeriodPreset, now = new Date()): PeriodQueryParams | null {
+export function periodQueryParams(
+  preset: PeriodPreset,
+  now = new Date(),
+): PeriodQueryParams | null {
   const range = resolvePeriod(preset, now)
   return range && { from: range.date_from, to: range.date_to }
 }

@@ -1,9 +1,10 @@
-import { ConfigProvider } from 'antd'
+import { App as AntdApp, ConfigProvider } from 'antd'
 import ruRU from 'antd/locale/ru_RU'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { ApiFeedbackBridge } from './components/ApiFeedbackBridge'
 import { appTheme, cardShadow, fontFamily, fontFamilyCode, palette } from './theme'
 import './index.css'
 
@@ -17,9 +18,12 @@ document.documentElement.style.setProperty('--shadow-card', cardShadow)
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ConfigProvider locale={ruRU} theme={appTheme}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <AntdApp>
+        <ApiFeedbackBridge />
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </AntdApp>
     </ConfigProvider>
   </StrictMode>,
 )

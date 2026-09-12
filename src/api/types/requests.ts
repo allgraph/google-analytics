@@ -8,6 +8,14 @@ import type {
   UnattributedReason,
 } from './common'
 
+export interface LoginRequest {
+  tenant_id: EntityId
+  email: string
+  password: string
+  totp_code?: string
+  recovery_code?: string
+}
+
 export interface CallBulkActionRequest {
   call_ids: EntityId[]
   action: 'mark_reviewed' | 'create_leads' | 'export'

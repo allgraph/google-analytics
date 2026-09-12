@@ -1,5 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { ApiError } from '../services/api'
+import { tokenStorage } from '../services/tokenStorage'
 import { notifyQueryError } from './errorHandling'
 
 const MAX_GET_RETRIES = 2
@@ -29,4 +30,8 @@ export const queryClient = new QueryClient({
       retry: false,
     },
   },
+})
+
+tokenStorage.subscribe(() => {
+  if (!tokenStorage.hasSession()) queryClient.clear()
 })

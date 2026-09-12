@@ -34,3 +34,15 @@ The HTTP client performs one shared refresh request when concurrent calls receiv
 rotated token pair and repeats each original request once. A failed refresh clears tokens and opens
 `/login`. Render `ApiErrorState` for query errors so `403` becomes an inline access state. Use
 `applyApiErrorToForm` to attach `422` errors to Ant Design form fields.
+
+## Authentication
+
+Until tenant discovery is implemented, `/auth/login` reads the hidden tenant UUID from
+`VITE_TENANT_ID`. Configure it in the deployment environment; do not commit a real tenant value.
+Login supports a second request with either `totp_code` or `recovery_code` when the backend reports
+that a second factor is required.
+
+The token store persists both expiry timestamps. The session controller refreshes the access token
+30 seconds before expiry, and the HTTP client waits for the same shared refresh promise before
+sending concurrent authenticated requests. `/auth/logout` ends the current refresh-token session;
+`/auth/logout-all` ends every session for the authenticated user.

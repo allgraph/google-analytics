@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { queryClient } from './api/queryClient'
 import { ApiFeedbackBridge } from './components/ApiFeedbackBridge'
+import { AuthSessionController } from './components/AuthSessionController'
 import { appTheme, cardShadow, fontFamily, fontFamilyCode, palette } from './theme'
 import './index.css'
 
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
       <AntdApp>
         <QueryClientProvider client={queryClient}>
           <ApiFeedbackBridge />
+          <AuthSessionController />
           <BrowserRouter>
             <App />
           </BrowserRouter>

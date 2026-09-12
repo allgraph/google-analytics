@@ -1,0 +1,22 @@
+# Переводы строк: в репозитории и в рабочей копии — всегда LF.
+#
+# Без этого файла на Windows при core.autocrlf=true рабочая копия получает CRLF,
+# а prettier по умолчанию ждёт LF (endOfLine: "lf"). В результате
+# `npm run format:check` падал разом на всех файлах локально и проходил в CI на
+# Linux — проверка переставала что-либо значить, и настоящие нарушения в ней тонули.
+* text=auto eol=lf
+
+# Бинарные файлы нормализовать нельзя.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.zip binary

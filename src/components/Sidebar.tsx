@@ -14,18 +14,24 @@ import { useSyncExternalStore } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import type { NavigationItem } from '../types/navigation'
+import { canAccessSection } from '../auth/accessPolicy'
 import styles from './Sidebar.module.css'
 
 const navigation: NavigationItem[] = [
-  { label: 'Дашборд', path: '/dashboard', icon: Gauge },
-  { label: 'Звонки', path: '/calls', icon: PhoneCall },
-  { label: 'Сопоставление', path: '/matching', icon: GitCompareArrows, badge: 12 },
-  { label: 'Заявки', path: '/requests', icon: BarChart3 },
-  { label: 'Аналитика', path: '/analytics', icon: BarChart3 },
-  { label: 'Районы', path: '/districts', icon: MapPinned },
-  { label: 'Финансы', path: '/finance', icon: CircleDollarSign },
-  { label: 'Уведомления', path: '/notifications', icon: Bell },
-  { label: 'Настройки', path: '/settings', icon: Settings },
+  { label: 'Дашборд', path: '/dashboard', section: 'dashboard', icon: Gauge },
+  { label: 'Звонки', path: '/calls', section: 'calls', icon: PhoneCall },
+  { label: 'Сопоставление', path: '/matching', section: 'matching', icon: GitCompareArrows },
+  { label: 'Заявки', path: '/requests', section: 'requests', icon: BarChart3 },
+  { label: 'Аналитика', path: '/analytics', section: 'analytics', icon: BarChart3 },
+  { label: 'Районы', path: '/districts', section: 'districts', icon: MapPinned },
+  { label: 'Финансы', path: '/finance', section: 'finance', icon: CircleDollarSign },
+  {
+    label: 'Уведомления',
+    path: '/notifications',
+    section: 'notifications',
+    icon: Bell,
+  },
+  { label: 'Настройки', path: '/settings', section: 'settings', icon: Settings },
 ]
 
 const desktopQuery = window.matchMedia('(min-width: 1024px)')
@@ -41,6 +47,8 @@ export function Sidebar() {
   const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktopSnapshot)
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const role = useAppStore((state) => state.currentUser?.role)
+  const visibleNavigation = navigation.filter(({ section }) => canAccessSection(role, section))
 
   const content = (
     <>
@@ -75,7 +83,7 @@ export function Sidebar() {
             navigate(key)
             closeSidebar()
           }}
-          items={navigation.map(({ label, path, icon: Icon, badge }) => ({
+          items={visibleNavigation.map(({ label, path, icon: Icon, badge }) => ({
             key: path,
             label: (
               <NavLink className={styles.link} onClick={closeSidebar} to={path}>

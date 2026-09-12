@@ -13,6 +13,17 @@ import type {
   UnattributedReason,
 } from './common'
 
+export interface AuthSession {
+  user_id: EntityId
+  tenant_id: EntityId
+  role: RoleCode
+  token_type: string
+  access_token: string
+  access_expires_at: IsoDateTime
+  refresh_token: string
+  refresh_expires_at: IsoDateTime
+}
+
 export interface CurrentUser {
   id: EntityId
   name: string

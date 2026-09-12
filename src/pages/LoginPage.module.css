@@ -1,0 +1,109 @@
+.page {
+  display: flex;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at 15% 15%, rgb(37 99 235 / 8%), transparent 34%),
+    radial-gradient(circle at 85% 85%, rgb(14 165 233 / 8%), transparent 32%),
+    var(--color-background);
+}
+
+.card.card {
+  width: min(100%, 420px);
+  border-color: var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.card :global(.ant-card-body) {
+  padding: 34px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: white;
+}
+
+.brandName {
+  color: var(--color-heading);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 22px;
+}
+
+.tagline {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.heading {
+  margin: 30px 0 26px;
+}
+
+.heading :global(.ant-typography) {
+  margin: 0;
+}
+
+.heading h2:global(.ant-typography) {
+  color: var(--color-heading);
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.heading span:global(.ant-typography) {
+  display: block;
+  margin-top: 6px;
+}
+
+.alert.alert {
+  margin-bottom: 22px;
+}
+
+.factorMode.factorMode {
+  display: flex;
+  width: 100%;
+  margin-bottom: 22px;
+}
+
+.factorMode :global(.ant-radio-button-wrapper) {
+  flex: 1;
+  text-align: center;
+}
+
+.backButton.backButton {
+  margin-top: 10px;
+  color: var(--color-secondary);
+}
+
+.footer.footer {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 480px) {
+  .page {
+    justify-content: flex-start;
+    padding: 18px 12px;
+  }
+
+  .card :global(.ant-card-body) {
+    padding: 26px 22px;
+  }
+}

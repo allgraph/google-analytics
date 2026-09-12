@@ -1,10 +1,13 @@
 import { parseErrorEnvelope, parseSuccessEnvelope } from '../api/adapters'
-import type { DataEnvelope, ErrorBody } from '../api/types'
-import { tokenStorage, type TokenPair } from './tokenStorage'
+import { apiRoutes } from '../api/routes'
+import type { AuthSession, DataEnvelope, ErrorBody } from '../api/types'
+import { clearSessionAndRedirect } from './session'
+import { tokenStorage } from './tokenStorage'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-const AUTH_REFRESH_PATH = '/auth/refresh'
-const LOGIN_PATH = '/login'
+const AUTH_LOGIN_PATH = apiRoutes.auth.login
+const AUTH_REFRESH_PATH = apiRoutes.auth.refresh
+const REFRESH_LEEWAY_MS = 30_000
 
 export const apiConfig = {
   baseUrl: API_BASE_URL,
@@ -37,6 +40,10 @@ interface RawResponse {
 
 interface SendOptions {
   includeAccessToken?: boolean
+}
+
+interface RequestOptions extends SendOptions {
+  canRefresh?: boolean
 }
 
 let refreshPromise: Promise<void> | undefined
@@ -126,14 +133,26 @@ async function send(
   }
 }
 
-function endSession(): void {
-  tokenStorage.clear()
-  if (window.location.pathname !== LOGIN_PATH) window.location.replace(LOGIN_PATH)
+function accessTokenNeedsRefresh(): boolean {
+  if (!tokenStorage.getRefreshToken()) return false
+  if (!tokenStorage.getAccessToken()) return true
+
+  const expiresAt = tokenStorage.getAccessExpiresAt()
+  if (!expiresAt) return true
+  const expiresAtMs = Date.parse(expiresAt)
+  return Number.isNaN(expiresAtMs) || expiresAtMs - Date.now() <= REFRESH_LEEWAY_MS
+}
+
+function refreshTokenHasExpired(): boolean {
+  const expiresAt = tokenStorage.getRefreshExpiresAt()
+  if (!expiresAt) return false
+  const expiresAtMs = Date.parse(expiresAt)
+  return !Number.isNaN(expiresAtMs) && expiresAtMs <= Date.now()
 }
 
 async function requestNewTokens(): Promise<void> {
   const refreshToken = tokenStorage.getRefreshToken()
-  if (!refreshToken) throw new Error('Refresh token is missing')
+  if (!refreshToken || refreshTokenHasExpired()) throw new Error('Refresh token has expired')
 
   const { response, payload } = await send(
     AUTH_REFRESH_PATH,
@@ -145,7 +164,7 @@ async function requestNewTokens(): Promise<void> {
   )
 
   if (!response.ok) throw apiErrorFromResponse(response, payload)
-  const envelope = parseSuccessEnvelope<TokenPair>(payload) as DataEnvelope<TokenPair>
+  const envelope = parseSuccessEnvelope<AuthSession>(payload) as DataEnvelope<AuthSession>
   tokenStorage.setTokens(envelope.data)
 }
 
@@ -158,17 +177,34 @@ async function refreshTokens(): Promise<void> {
   return refreshPromise
 }
 
-async function request<T>(path: string, init: RequestInit, canRefresh: boolean): Promise<T> {
-  const { response, payload } = await send(path, init)
+export async function refreshAccessToken(): Promise<void> {
+  try {
+    await refreshTokens()
+  } catch (error) {
+    console.error('[API] Token refresh failed', error)
+    clearSessionAndRedirect()
+    throw error
+  }
+}
+
+export async function ensureFreshAccessToken(): Promise<void> {
+  if (accessTokenNeedsRefresh()) await refreshAccessToken()
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit,
+  { canRefresh = true, includeAccessToken = true }: RequestOptions = {},
+): Promise<T> {
+  if (includeAccessToken && canRefresh && path !== AUTH_REFRESH_PATH) {
+    await ensureFreshAccessToken()
+  }
+
+  const { response, payload } = await send(path, init, { includeAccessToken })
 
   if (response.status === 401 && canRefresh && path !== AUTH_REFRESH_PATH) {
-    try {
-      await refreshTokens()
-      return request<T>(path, init, false)
-    } catch (refreshError) {
-      console.error('[API] Token refresh failed', refreshError)
-      endSession()
-    }
+    await refreshAccessToken()
+    return request<T>(path, init, { canRefresh: false, includeAccessToken })
   }
 
   if (!response.ok) {
@@ -185,5 +221,12 @@ async function request<T>(path: string, init: RequestInit, canRefresh: boolean):
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  return request<T>(path, init, true)
+  return request<T>(path, init)
+}
+
+export async function publicApiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return request<T>(path, init, {
+    canRefresh: false,
+    includeAccessToken: path !== AUTH_LOGIN_PATH,
+  })
 }

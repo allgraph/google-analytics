@@ -1,9 +1,11 @@
 import { App as AntdApp, ConfigProvider } from 'antd'
+import { QueryClientProvider } from '@tanstack/react-query'
 import ruRU from 'antd/locale/ru_RU'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { queryClient } from './api/queryClient'
 import { ApiFeedbackBridge } from './components/ApiFeedbackBridge'
 import { appTheme, cardShadow, fontFamily, fontFamilyCode, palette } from './theme'
 import './index.css'
@@ -19,10 +21,12 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ConfigProvider locale={ruRU} theme={appTheme}>
       <AntdApp>
-        <ApiFeedbackBridge />
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <ApiFeedbackBridge />
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </QueryClientProvider>
       </AntdApp>
     </ConfigProvider>
   </StrictMode>,

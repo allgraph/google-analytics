@@ -17,5 +17,20 @@ export function ApiErrorState({ error }: ApiErrorStateProps) {
   }
 
   const message = error instanceof Error ? error.message : 'Не удалось загрузить данные'
-  return <Alert showIcon type="error" message="Ошибка загрузки" description={message} />
+  // request_id нужен, чтобы по жалобе пользователя нашли конкретный запрос в логах бэкенда.
+  const requestId = error instanceof ApiError ? error.requestId : ''
+
+  return (
+    <Alert
+      showIcon
+      type="error"
+      message="Ошибка загрузки"
+      description={
+        <>
+          <div>{message}</div>
+          {requestId ? <div>request_id: {requestId}</div> : null}
+        </>
+      }
+    />
+  )
 }

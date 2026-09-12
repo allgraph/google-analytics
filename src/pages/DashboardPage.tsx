@@ -1,54 +1,63 @@
 import { Button, Card, Table } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { ArrowDownRight, ArrowUpRight, CalendarDays } from 'lucide-react'
+import type { Money, NullableMetric } from '../api/types'
+import { formatMoneyCompact, formatNumber, formatPercent } from '../lib/format'
 import pageStyles from './Page.module.css'
 import styles from './DashboardPage.module.css'
 
+const EUR = (amount: string): Money => ({ amount, currency: 'EUR' })
+
 const metrics = [
-  { label: 'Расход', value: '€12 480', delta: '+8,2%', positive: false },
-  { label: 'Звонки', value: '1 284', delta: '+12,4%', positive: true },
-  { label: 'Заявки', value: '486', delta: '+6,8%', positive: true },
-  { label: 'Чистая прибыль', value: '€18 940', delta: '+14,1%', positive: true },
+  { label: 'Расход', value: formatMoneyCompact(EUR('12480.00')), delta: 8.2, positive: false },
+  { label: 'Звонки', value: formatNumber(1284), delta: 12.4, positive: true },
+  { label: 'Заявки', value: formatNumber(486), delta: 6.8, positive: true },
+  {
+    label: 'Чистая прибыль',
+    value: formatMoneyCompact(EUR('18940.00')),
+    delta: 14.1,
+    positive: true,
+  },
 ]
 
 interface SiteMetric {
   site: string
-  spend: string
-  calls: string
-  profit: string
-  roi: string
+  spend: Money
+  calls: number
+  profit: Money
+  roi: NullableMetric
 }
 
 const sites: SiteMetric[] = [
   {
     site: 'sanitaer-notdienst-berlin.de',
-    spend: '€4 820',
-    calls: '412',
-    profit: '€8 460',
-    roi: '175,5%',
+    spend: EUR('4820.00'),
+    calls: 412,
+    profit: EUR('8460.00'),
+    roi: 175.5,
   },
   {
     site: 'rohrreinigung-berlin-sofort.de',
-    spend: '€3 160',
-    calls: '328',
-    profit: '€5 120',
-    roi: '162,0%',
+    spend: EUR('3160.00'),
+    calls: 328,
+    profit: EUR('5120.00'),
+    roi: 162,
   },
   {
     site: 'schluesseldienst-berlin-24.de',
-    spend: '€2 840',
-    calls: '241',
-    profit: '−€212',
-    roi: '−7,5%',
+    spend: EUR('2840.00'),
+    calls: 241,
+    profit: EUR('-212.00'),
+    roi: -7.5,
   },
 ]
 
 const columns: TableColumnsType<SiteMetric> = [
   { title: 'Сайт', dataIndex: 'site', className: styles.site },
-  { title: 'Расход', dataIndex: 'spend' },
-  { title: 'Звонки', dataIndex: 'calls' },
-  { title: 'Прибыль', dataIndex: 'profit' },
-  { title: 'ROI', dataIndex: 'roi' },
+  { title: 'Расход', dataIndex: 'spend', render: (spend: Money) => formatMoneyCompact(spend) },
+  { title: 'Звонки', dataIndex: 'calls', render: (calls: number) => formatNumber(calls) },
+  { title: 'Прибыль', dataIndex: 'profit', render: (profit: Money) => formatMoneyCompact(profit) },
+  { title: 'ROI', dataIndex: 'roi', render: (roi: NullableMetric) => formatPercent(roi) },
 ]
 
 export function DashboardPage() {
@@ -75,7 +84,7 @@ export function DashboardPage() {
                   className={`${styles.delta} ${metric.positive ? styles.positive : styles.negative}`}
                 >
                   {metric.positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                  {metric.delta}
+                  {`+${formatPercent(metric.delta)}`}
                 </span>
               </div>
             </Card>

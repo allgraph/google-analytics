@@ -1,0 +1,101 @@
+/*
+ * Единая пометка «нет данных» (GA-28).
+ * Цвета берутся из палитры через переменные, заданные в main.tsx, — вторая тема не потребует
+ * правок разметки. Пометка не меняет размеры элемента: на мобильной ширине вёрстка не едет.
+ */
+
+.pending {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--color-muted);
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Содержимое остаётся на месте в согласованном виде, но неактивно. */
+.content {
+  display: contents;
+  pointer-events: none;
+}
+
+.mark {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--color-muted);
+  border-radius: 50%;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-muted) 0,
+    var(--color-muted) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.dash {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cell,
+.column {
+  display: inline-flex;
+}
+
+.filter,
+.action {
+  opacity: 0.75;
+}
+
+.block,
+.tab {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  background: var(--color-subtle);
+  padding: 8px;
+}
+
+.badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-background);
+  padding: 2px 9px;
+  color: var(--color-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.blockContent {
+  opacity: 0.55;
+  pointer-events: none;
+  filter: grayscale(1);
+}
+
+.screen {
+  display: block;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .badge {
+    position: static;
+    margin-bottom: 8px;
+  }
+}

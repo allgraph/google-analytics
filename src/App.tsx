@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './layouts/AppLayout'
 import { DashboardPage } from './pages/DashboardPage'
+import { LoginRequiredPage } from './pages/LoginRequiredPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="notifications" element={<PlaceholderPage title="Уведомления" />} />
         <Route path="settings" element={<PlaceholderPage title="Настройки" />} />
       </Route>
+      <Route path="login" element={<LoginRequiredPage />} />
       <Route path="*" element={<Navigate replace to="/dashboard" />} />
     </Routes>
   )

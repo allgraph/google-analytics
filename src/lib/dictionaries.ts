@@ -117,7 +117,7 @@ export const devices: Dictionary<DeviceCode> = {
 /** Семь ролей из `docs/api-contract.md`. */
 export const roles: Dictionary<RoleCode> = {
   owner: { label: 'Владелец', tone: 'indigo' },
-  manager: { label: 'Менеджер', tone: 'indigo' },
+  manager: { label: 'Руководитель', tone: 'indigo' },
   marketer: { label: 'Маркетолог', tone: 'gray' },
   operator: { label: 'Оператор', tone: 'gray' },
   accountant: { label: 'Бухгалтер', tone: 'gray' },

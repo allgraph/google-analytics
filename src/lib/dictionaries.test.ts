@@ -69,6 +69,13 @@ describe('остальные словари', () => {
   it('семь ролей', () => {
     expect(Object.keys(roles)).toHaveLength(7)
   })
+
+  it('подписи ролей — как в прототипе и в описаниях экранов', () => {
+    expect(getLabel(roles, 'owner')).toBe('Владелец')
+    expect(getLabel(roles, 'manager')).toBe('Руководитель')
+    expect(getLabel(roles, 'marketer')).toBe('Маркетолог')
+    expect(getLabel(roles, 'accountant')).toBe('Бухгалтер')
+  })
 })
 
 describe('getDictionaryEntry', () => {

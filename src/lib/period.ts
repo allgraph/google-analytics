@@ -83,3 +83,25 @@ export function resolvePeriod(preset: PeriodPreset, now = new Date()): PeriodRan
 export function isPeriodPreset(value: string | null | undefined): value is PeriodPreset {
   return !!value && value in periodLabels
 }
+
+/** Границы периода в именах query-параметров фактического API. */
+export interface PeriodQueryParams {
+  from: string
+  to: string
+}
+
+/**
+ * То же, что `resolvePeriod`, но в именах, которые понимает бэкенд.
+ *
+ * Согласованный контракт зовёт границы периода `date_from` и `date_to` (`ReportFilter` в
+ * `docs/openapi.yaml`), фактическая реализация — `from` и `to`
+ * (`docs/openapi-backend.yaml`, параметры `From` и `To`). Неизвестные параметры сервер молча
+ * игнорирует, поэтому без перевода фильтр периода выглядит рабочим и не фильтрует ничего.
+ *
+ * Перевод живёт здесь — на границе «состояние экрана → запрос», а не в `resolvePeriod`:
+ * сам период остаётся в именах контракта, как и `ReportFilter`.
+ */
+export function periodQueryParams(preset: PeriodPreset, now = new Date()): PeriodQueryParams | null {
+  const range = resolvePeriod(preset, now)
+  return range && { from: range.date_from, to: range.date_to }
+}

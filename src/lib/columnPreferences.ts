@@ -64,17 +64,19 @@ export function mergePreferences(
   ]
 }
 
-export function moveColumn(
+/** Перестановка перетаскиванием: колонка `activeKey` встаёт на место `overKey`. */
+export function reorderColumns(
   preferences: ColumnPreference[],
-  key: string,
-  direction: -1 | 1,
+  activeKey: string,
+  overKey: string,
 ): ColumnPreference[] {
-  const index = preferences.findIndex((preference) => preference.key === key)
-  const target = index + direction
-  if (index < 0 || target < 0 || target >= preferences.length) return preferences
+  const from = preferences.findIndex((preference) => preference.key === activeKey)
+  const to = preferences.findIndex((preference) => preference.key === overKey)
+  if (from < 0 || to < 0 || from === to) return preferences
 
   const next = [...preferences]
-  ;[next[index], next[target]] = [next[target], next[index]]
+  const [moved] = next.splice(from, 1)
+  next.splice(to, 0, moved)
   return next
 }
 
@@ -82,6 +84,14 @@ export function toggleColumn(preferences: ColumnPreference[], key: string): Colu
   return preferences.map((preference) =>
     preference.key === key ? { ...preference, visible: !preference.visible } : preference,
   )
+}
+
+/** «Выбрать все» и «Снять все» — порядок колонок при этом не меняется. */
+export function setAllColumns(
+  preferences: ColumnPreference[],
+  visible: boolean,
+): ColumnPreference[] {
+  return preferences.map((preference) => ({ ...preference, visible }))
 }
 
 export interface ColumnPreferencesApi {

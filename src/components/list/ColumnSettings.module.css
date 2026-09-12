@@ -5,29 +5,60 @@
   font-weight: 400;
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-subtle);
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+}
+
+.counter {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .list {
   margin: 0;
   padding: 0;
   max-height: 420px;
   overflow-y: auto;
   list-style: none;
+  /* Перетаскивание по вертикали не должно конкурировать с прокруткой страницы на тач-экране. */
+  touch-action: pan-y;
 }
 
 .row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   border-radius: 8px;
   padding: 6px 8px;
+  background: var(--color-background);
 }
 
 .row:nth-child(even) {
   background: var(--color-subtle);
 }
 
-.actions {
-  display: inline-flex;
+.dragging {
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.handle.handle {
   flex: 0 0 auto;
-  gap: 2px;
+  color: var(--color-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.handle.handle:active {
+  cursor: grabbing;
 }

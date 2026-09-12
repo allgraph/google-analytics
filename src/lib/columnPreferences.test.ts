@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mergePreferences, moveColumn, toggleColumn } from './columnPreferences'
+import { mergePreferences, reorderColumns, setAllColumns, toggleColumn } from './columnPreferences'
 
 const available = ['time', 'phone', 'status']
 
@@ -43,20 +43,51 @@ describe('mergePreferences', () => {
   })
 })
 
-describe('moveColumn', () => {
+describe('reorderColumns', () => {
   const preferences = mergePreferences(available, null)
 
-  it('поднимает колонку', () => {
-    expect(moveColumn(preferences, 'phone', -1).map((p) => p.key)).toEqual([
-      'phone',
-      'time',
+  it('перетаскивание вверх ставит колонку на место цели', () => {
+    expect(reorderColumns(preferences, 'status', 'time').map((p) => p.key)).toEqual([
       'status',
+      'time',
+      'phone',
     ])
   })
 
-  it('за границы списка не выводит', () => {
-    expect(moveColumn(preferences, 'time', -1)).toBe(preferences)
-    expect(moveColumn(preferences, 'status', 1)).toBe(preferences)
+  it('перетаскивание вниз сдвигает остальные', () => {
+    expect(reorderColumns(preferences, 'time', 'status').map((p) => p.key)).toEqual([
+      'phone',
+      'status',
+      'time',
+    ])
+  })
+
+  it('видимость при перестановке не меняется', () => {
+    const mixed = toggleColumn(preferences, 'phone')
+    const reordered = reorderColumns(mixed, 'phone', 'time')
+    expect(reordered.find((p) => p.key === 'phone')?.visible).toBe(false)
+  })
+
+  it('бросок на самого себя или на неизвестный ключ ничего не меняет', () => {
+    expect(reorderColumns(preferences, 'time', 'time')).toBe(preferences)
+    expect(reorderColumns(preferences, 'time', 'нет такой')).toBe(preferences)
+  })
+})
+
+describe('setAllColumns', () => {
+  const preferences = mergePreferences(available, null)
+
+  it('снимает все отметки, не трогая порядок', () => {
+    expect(setAllColumns(preferences, false)).toEqual([
+      { key: 'time', visible: false },
+      { key: 'phone', visible: false },
+      { key: 'status', visible: false },
+    ])
+  })
+
+  it('возвращает все отметки', () => {
+    const none = setAllColumns(preferences, false)
+    expect(setAllColumns(none, true).every((p) => p.visible)).toBe(true)
   })
 })
 

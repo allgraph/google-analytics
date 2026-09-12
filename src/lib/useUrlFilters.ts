@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { FormQueryParams } from '../api/adapters'
-import { DEFAULT_PERIOD, isPeriodPreset, resolvePeriod, type PeriodPreset } from './period'
+import { DEFAULT_PERIOD, isPeriodPreset, periodQueryParams, type PeriodPreset } from './period'
 
 /**
  * Состояние списка живёт в URL (GA-27): ссылку на отфильтрованный список можно отправить
@@ -112,7 +112,8 @@ export function useUrlFilters(): UrlFiltersApi {
   )
 
   const toQueryParams = useCallback(() => {
-    const range = resolvePeriod(state.period)
+    // Границы периода уходят в API как `from` и `to` — см. `periodQueryParams`.
+    const range = periodQueryParams(state.period)
 
     return {
       page: state.page,

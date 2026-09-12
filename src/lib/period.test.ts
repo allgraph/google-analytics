@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPeriodPreset, periodLabels, resolvePeriod } from './period'
+import { isPeriodPreset, periodLabels, periodQueryParams, resolvePeriod } from './period'
 
 /** Полдень 3 сентября 2026 в локальной таймзоне — границы суток считаются от неё. */
 const NOW = new Date(2026, 8, 3, 12, 0, 0)
@@ -47,6 +47,20 @@ describe('resolvePeriod', () => {
 
   it('«Произвольный» разворачивать нечем — диапазон задаёт пользователь', () => {
     expect(resolvePeriod('custom', NOW)).toBeNull()
+  })
+})
+
+describe('periodQueryParams', () => {
+  it('отдаёт границы в именах фактического API — `from` и `to`, а не `date_from`', () => {
+    const params = periodQueryParams('today', NOW)!
+
+    expect(Object.keys(params).sort()).toEqual(['from', 'to'])
+    expect(params.from).toBe(resolvePeriod('today', NOW)!.date_from)
+    expect(params.to).toBe(resolvePeriod('today', NOW)!.date_to)
+  })
+
+  it('«Произвольный» границ не даёт — как и `resolvePeriod`', () => {
+    expect(periodQueryParams('custom', NOW)).toBeNull()
   })
 })
 

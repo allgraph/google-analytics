@@ -1,0 +1,33 @@
+.subtitle {
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.row:nth-child(even) {
+  background: var(--color-subtle);
+}
+
+.actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}

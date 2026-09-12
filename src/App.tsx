@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './layouts/AppLayout'
+import { CallsPage } from './pages/CallsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginRequiredPage } from './pages/LoginRequiredPage'
 import { PendingRegistryPage } from './pages/PendingRegistryPage'
@@ -11,7 +12,7 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route index element={<Navigate replace to="/dashboard" />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="calls" element={<PlaceholderPage title="Звонки" />} />
+        <Route path="calls" element={<CallsPage />} />
         <Route path="matching" element={<PlaceholderPage title="Сопоставление" />} />
         <Route path="requests" element={<PlaceholderPage title="Заявки" />} />
         <Route path="analytics" element={<PlaceholderPage title="Аналитика" />} />

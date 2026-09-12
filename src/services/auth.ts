@@ -20,8 +20,7 @@ export type LoginCredentials = Omit<LoginRequest, 'tenant_id'>
 export function isSecondFactorRequired(error: unknown): boolean {
   if (!(error instanceof Error) || !('status' in error) || error.status !== 401) return false
   const code = 'code' in error && typeof error.code === 'string' ? error.code : ''
-  const marker = `${code} ${error.message}`.toUpperCase()
-  return ['TOTP', '2FA', 'MFA', 'SECOND_FACTOR'].some((value) => marker.includes(value))
+  return code === 'SECOND_FACTOR_REQUIRED'
 }
 
 export async function login(credentials: LoginCredentials): Promise<AuthSession> {

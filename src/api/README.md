@@ -40,7 +40,7 @@ rotated token pair and repeats each original request once. A failed refresh clea
 Until tenant discovery is implemented, `/auth/login` reads the hidden tenant UUID from
 `VITE_TENANT_ID`. Configure it in the deployment environment; do not commit a real tenant value.
 Login supports a second request with either `totp_code` or `recovery_code` when the backend reports
-that a second factor is required.
+`SECOND_FACTOR_REQUIRED`. Other `401` responses remain ordinary authentication errors.
 
 The token store persists both expiry timestamps. The session controller refreshes the access token
 30 seconds before expiry, and the HTTP client waits for the same shared refresh promise before

@@ -1,0 +1,42 @@
+.empty {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.twoLine {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.sub {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.link {
+  color: var(--color-primaryText);
+  font-weight: 500;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.positive {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.negative {
+  color: var(--color-error);
+  font-weight: 600;
+}

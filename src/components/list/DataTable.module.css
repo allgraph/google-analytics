@@ -1,0 +1,75 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Панель выделения из прототипа: индиговая плашка над таблицей. */
+.bulkBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  background: #4f46e5;
+  padding: 9px 12px;
+  color: #fff;
+}
+
+.bulkCount {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.bulkButton.bulkButton {
+  border-color: rgb(255 255 255 / 28%);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+
+.bulkButton.bulkButton:hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 45%);
+  background: rgb(255 255 255 / 22%);
+  color: #fff;
+}
+
+.bulkClear.bulkClear {
+  color: rgb(255 255 255 / 85%);
+}
+
+.bulkClear.bulkClear:hover {
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+
+.pageSize {
+  width: 74px;
+}
+
+.range {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.page {
+  min-width: 26px;
+  color: var(--color-primaryText);
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

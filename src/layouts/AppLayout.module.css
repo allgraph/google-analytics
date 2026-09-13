@@ -33,6 +33,11 @@
   margin-left: auto;
 }
 
+.rolePreview.rolePreview {
+  display: inline-flex;
+  align-items: center;
+}
+
 .iconButton.iconButton {
   display: inline-flex;
   align-items: center;
@@ -67,6 +72,18 @@
 
 .content {
   padding: 16px;
+}
+
+@media (max-width: 639px) {
+  .account {
+    display: none;
+  }
+
+  .rolePreview.rolePreview {
+    width: 34px;
+    padding-inline: 8px;
+    font-size: 0;
+  }
 }
 
 @media (min-width: 640px) {

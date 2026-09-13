@@ -6,6 +6,7 @@ import { useApiListQuery } from '../api/hooks'
 import { apiRoutes } from '../api/routes'
 import type { Call } from '../api/types'
 import { StatusTag } from '../components/StatusTag'
+import { RestrictedValue } from '../components/RestrictedValue'
 import {
   ButtonCell,
   ColumnSettings,
@@ -24,6 +25,8 @@ import { useColumnPreferences } from '../lib/columnPreferences'
 import { callStatuses, confidenceCategories, dictionaryOptions } from '../lib/dictionaries'
 import { formatDateTime, formatDurationSeconds } from '../lib/format'
 import { useUrlFilters } from '../lib/useUrlFilters'
+import { isFieldHidden } from '../auth/accessPolicy'
+import { useAppStore } from '../store/useAppStore'
 import styles from './CallsPage.module.css'
 import pageStyles from './Page.module.css'
 
@@ -62,6 +65,7 @@ const bulkActions: BulkAction[] = [
 
 export function CallsPage() {
   const filters = useUrlFilters()
+  const role = useAppStore((state) => state.currentUser?.role)
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([])
   const [columnsOpen, setColumnsOpen] = useState(false)
   const { preferences, setPreferences, visibleKeys } = useColumnPreferences(SCREEN, COLUMN_ORDER)
@@ -73,6 +77,18 @@ export function CallsPage() {
   })
 
   const columns = useMemo(() => buildColumns(visibleKeys), [visibleKeys])
+  const visibleBaseFilters = baseFilters.filter(
+    ({ key }) => !(key === 'operator_id' && isFieldHidden(role, 'staff')),
+  )
+  const visibleMoreFilters = moreFilters.filter(({ key }) => {
+    if (isFieldHidden(role, 'advertising')) {
+      if (['campaign_id', 'ad_group_id', 'keyword_id', 'ad_id'].includes(key)) return false
+    }
+    if (isFieldHidden(role, 'staff')) {
+      if (key === 'operator_id_more' || key === 'master_id') return false
+    }
+    return true
+  })
 
   return (
     <div className={`${pageStyles.page} ${styles.calls}`}>
@@ -80,8 +96,8 @@ export function CallsPage() {
 
       <FilterBar
         filters={filters}
-        base={baseFilters}
-        more={moreFilters}
+        base={visibleBaseFilters}
+        more={visibleMoreFilters}
         search={{ placeholder: 'Поиск по номеру', pending: 'calls.phone-search' }}
         actions={
           <>
@@ -208,7 +224,11 @@ function buildColumns(visibleKeys: string[]): TableColumnsType<Call> {
       key: 'operator',
       title: columnLabels.operator,
       dataIndex: ['operator', 'label'],
-      render: (value: string | null) => <ValueCell value={value} />,
+      render: (value: string | null) => (
+        <RestrictedValue field="staff">
+          <ValueCell value={value} />
+        </RestrictedValue>
+      ),
     },
     confidence: {
       key: 'confidence',
@@ -219,7 +239,11 @@ function buildColumns(visibleKeys: string[]): TableColumnsType<Call> {
     source: {
       key: 'source',
       title: columnLabels.source,
-      render: (_value, call) => <TwoLineCell value={call.campaign} sub={call.keyword} />,
+      render: (_value, call) => (
+        <RestrictedValue field="advertising">
+          <TwoLineCell value={call.campaign} sub={call.keyword} />
+        </RestrictedValue>
+      ),
     },
     is_repeat: {
       key: 'is_repeat',

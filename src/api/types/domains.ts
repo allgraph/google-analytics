@@ -25,14 +25,14 @@ export interface AuthSession {
 }
 
 export interface CurrentUser {
-  id: EntityId
-  name: string
-  email: string
+  user_id: EntityId
+  tenant_id: EntityId
+  membership_id: EntityId
   role: RoleCode
-  account_ids: EntityId[]
-  site_ids: EntityId[]
-  section_access: Record<string, AccessLevel>
-  capabilities: string[]
+  site_ids: EntityId[] | null
+  project_ids: EntityId[] | null
+  issued_at: IsoDateTime
+  expires_at: IsoDateTime
 }
 
 export interface FunnelStep {

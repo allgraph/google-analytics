@@ -56,7 +56,7 @@ export function LoginPage() {
         'from' in location.state &&
         typeof location.state.from === 'string'
           ? location.state.from
-          : '/dashboard'
+          : '/'
       navigate(target, { replace: true })
     } catch (error) {
       if (!secondFactor && isSecondFactorRequired(error)) {

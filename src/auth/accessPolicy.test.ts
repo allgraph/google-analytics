@@ -4,6 +4,7 @@ import {
   canAccessSection,
   firstAccessiblePath,
   isFieldHidden,
+  multiRoleUiEnabled,
   rolePolicies,
   sections,
 } from './accessPolicy'
@@ -19,40 +20,23 @@ const roles: RoleCode[] = [
 ]
 
 describe('rolePolicies', () => {
+  it('отключает multi-role UI на первом этапе', () => {
+    expect(multiRoleUiEnabled).toBe(false)
+  })
+
   it('описывает все семь ролей', () => {
     expect(Object.keys(rolePolicies)).toEqual(roles)
   })
 
   it.each([
     ['owner', sections],
-    [
-      'manager',
-      [
-        'dashboard',
-        'calls',
-        'requests',
-        'analytics',
-        'districts',
-        'notifications',
-        'matching',
-        'finance',
-      ],
-    ],
-    [
-      'marketer',
-      ['dashboard', 'calls', 'requests', 'analytics', 'districts', 'notifications', 'matching'],
-    ],
-    ['operator', ['calls', 'requests', 'notifications']],
-    [
-      'accountant',
-      ['dashboard', 'calls', 'requests', 'analytics', 'districts', 'notifications', 'finance'],
-    ],
-    [
-      'client',
-      ['dashboard', 'calls', 'requests', 'analytics', 'districts', 'notifications', 'finance'],
-    ],
-    ['technical_admin', ['settings']],
-  ] as const)('%s получает согласованный набор разделов', (role, allowed) => {
+    ['manager', []],
+    ['marketer', []],
+    ['operator', []],
+    ['accountant', []],
+    ['client', []],
+    ['technical_admin', sections],
+  ] as const)('%s получает набор разделов административного режима', (role, allowed) => {
     for (const section of sections) {
       expect(canAccessSection(role, section)).toBe(allowed.includes(section as never))
     }
@@ -65,7 +49,7 @@ describe('rolePolicies', () => {
     ['operator', ['money']],
     ['accountant', ['advertising']],
     ['client', ['staff']],
-    ['technical_admin', ['recordings', 'transcripts']],
+    ['technical_admin', []],
   ] as const)('%s получает согласованное маскирование полей', (role, hidden) => {
     for (const field of ['money', 'advertising', 'staff', 'recordings', 'transcripts'] as const) {
       expect(isFieldHidden(role, field)).toBe(hidden.includes(field as never))
@@ -74,12 +58,12 @@ describe('rolePolicies', () => {
 
   it.each([
     ['owner', '/dashboard'],
-    ['manager', '/dashboard'],
-    ['marketer', '/dashboard'],
-    ['operator', '/calls'],
-    ['accountant', '/dashboard'],
-    ['client', '/dashboard'],
-    ['technical_admin', '/settings'],
+    ['manager', '/access-denied'],
+    ['marketer', '/access-denied'],
+    ['operator', '/access-denied'],
+    ['accountant', '/access-denied'],
+    ['client', '/access-denied'],
+    ['technical_admin', '/dashboard'],
   ] as const)('%s попадает в первый доступный раздел', (role, path) => {
     expect(firstAccessiblePath(role)).toBe(path)
   })

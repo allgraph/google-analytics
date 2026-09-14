@@ -1,12 +1,15 @@
 import { Button, Drawer, Menu } from 'antd'
 import {
-  BarChart3,
-  Bell,
-  CircleDollarSign,
+  CreditCard,
+  FileText,
   Gauge,
   GitCompareArrows,
+  KeyRound,
+  Layers,
   MapPinned,
-  PhoneCall,
+  Monitor,
+  RefreshCw,
+  Search,
   Settings,
   X,
 } from 'lucide-react'
@@ -15,23 +18,31 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import type { NavigationItem } from '../types/navigation'
 import { canAccessSection } from '../auth/accessPolicy'
+import { activeNavigationPath, appRoutes } from '../routing/routes'
 import styles from './Sidebar.module.css'
 
 const navigation: NavigationItem[] = [
-  { label: 'Дашборд', path: '/dashboard', section: 'dashboard', icon: Gauge },
-  { label: 'Звонки', path: '/calls', section: 'calls', icon: PhoneCall },
-  { label: 'Сопоставление', path: '/matching', section: 'matching', icon: GitCompareArrows },
-  { label: 'Заявки', path: '/requests', section: 'requests', icon: BarChart3 },
-  { label: 'Аналитика', path: '/analytics', section: 'analytics', icon: BarChart3 },
-  { label: 'Районы', path: '/districts', section: 'districts', icon: MapPinned },
-  { label: 'Финансы', path: '/finance', section: 'finance', icon: CircleDollarSign },
+  { label: 'Dashboard', path: appRoutes.dashboard, section: 'dashboard', icon: Gauge },
   {
-    label: 'Уведомления',
-    path: '/notifications',
-    section: 'notifications',
-    icon: Bell,
+    label: 'Google Ads Accounts',
+    path: appRoutes.adsAccounts,
+    section: 'adsAccounts',
+    icon: CreditCard,
   },
-  { label: 'Настройки', path: '/settings', section: 'settings', icon: Settings },
+  { label: 'Campaigns', path: appRoutes.campaigns, section: 'campaigns', icon: Layers },
+  { label: 'Ad Groups', path: appRoutes.adGroups, section: 'adGroups', icon: Layers },
+  { label: 'Ads', path: appRoutes.ads, section: 'ads', icon: FileText },
+  { label: 'Keywords', path: appRoutes.keywords, section: 'keywords', icon: KeyRound },
+  { label: 'Search Terms', path: appRoutes.searchTerms, section: 'searchTerms', icon: Search },
+  { label: 'Geography', path: appRoutes.geography, section: 'geography', icon: MapPinned },
+  { label: 'Devices', path: appRoutes.devices, section: 'devices', icon: Monitor },
+  {
+    label: 'Sync / System Status',
+    path: appRoutes.syncStatus,
+    section: 'syncStatus',
+    icon: RefreshCw,
+  },
+  { label: 'Settings', path: appRoutes.settings, section: 'settings', icon: Settings },
 ]
 
 const desktopQuery = window.matchMedia('(min-width: 1024px)')
@@ -49,6 +60,10 @@ export function Sidebar() {
   const navigate = useNavigate()
   const role = useAppStore((state) => state.currentUser?.role)
   const visibleNavigation = navigation.filter(({ section }) => canAccessSection(role, section))
+  const selectedPath = activeNavigationPath(
+    pathname,
+    visibleNavigation.map(({ path }) => path),
+  )
 
   const content = (
     <>
@@ -58,7 +73,7 @@ export function Sidebar() {
         </span>
         <div>
           <div className={styles.brandName}>Callgraph</div>
-          <div className={styles.tagline}>Сквозная аналитика</div>
+          <div className={styles.tagline}>Google Ads аналитика</div>
         </div>
         {!isDesktop && (
           <Button
@@ -75,7 +90,7 @@ export function Sidebar() {
           className={styles.menu}
           mode="inline"
           inlineIndent={12}
-          selectedKeys={[pathname]}
+          selectedKeys={[selectedPath]}
           onClick={({ key, domEvent }) => {
             // Links retain native navigation (including Ctrl/Cmd-click).
             // Menu keyboard activation targets the menu item itself.

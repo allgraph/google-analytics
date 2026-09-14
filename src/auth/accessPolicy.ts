@@ -2,13 +2,15 @@ import type { RoleCode } from '../api/types'
 
 export const sections = [
   'dashboard',
-  'calls',
-  'matching',
-  'requests',
-  'analytics',
-  'districts',
-  'finance',
-  'notifications',
+  'adsAccounts',
+  'campaigns',
+  'adGroups',
+  'ads',
+  'keywords',
+  'searchTerms',
+  'geography',
+  'devices',
+  'syncStatus',
   'settings',
 ] as const
 
@@ -20,19 +22,15 @@ export interface RolePolicy {
   hiddenFields: readonly HiddenFieldGroup[]
 }
 
-const projectSections: readonly Section[] = [
-  'dashboard',
-  'calls',
-  'requests',
-  'analytics',
-  'districts',
-  'notifications',
-]
+export const multiRoleUiEnabled = false
+
+const noSections: readonly Section[] = []
 
 /**
- * Временная фронтенд-политика GA-26. Backend пока возвращает роль и scope, но не возвращает
- * матрицу разделов и не вырезает запрещённые поля (C3). Поэтому эта таблица управляет только
- * интерфейсом и не является границей безопасности.
+ * Новый первый этап работает только в административном режиме. Старые коды ролей остаются в
+ * API-типах, чтобы не ломать действующую авторизацию и позже вернуть multi-role UI. Пока backend
+ * не ввёл отдельный `administrator`, его эквивалентами являются `owner` и `technical_admin`.
+ * Эта политика управляет только интерфейсом и не заменяет проверки доступа на backend.
  */
 export const rolePolicies: Record<RoleCode, RolePolicy> = {
   owner: {
@@ -40,28 +38,28 @@ export const rolePolicies: Record<RoleCode, RolePolicy> = {
     hiddenFields: [],
   },
   manager: {
-    sections: [...projectSections, 'matching', 'finance'],
+    sections: noSections,
     hiddenFields: [],
   },
   marketer: {
-    sections: [...projectSections, 'matching'],
+    sections: noSections,
     hiddenFields: ['money'],
   },
   operator: {
-    sections: ['calls', 'requests', 'notifications'],
+    sections: noSections,
     hiddenFields: ['money'],
   },
   accountant: {
-    sections: [...projectSections, 'finance'],
+    sections: noSections,
     hiddenFields: ['advertising'],
   },
   client: {
-    sections: [...projectSections, 'finance'],
+    sections: noSections,
     hiddenFields: ['staff'],
   },
   technical_admin: {
-    sections: ['settings'],
-    hiddenFields: ['recordings', 'transcripts'],
+    sections,
+    hiddenFields: [],
   },
 }
 
@@ -75,5 +73,5 @@ export function isFieldHidden(role: RoleCode | undefined, fieldGroup: HiddenFiel
 
 export function firstAccessiblePath(role: RoleCode | undefined): string {
   const section = role ? rolePolicies[role]?.sections[0] : undefined
-  return section ? `/${section}` : '/login'
+  return section ? '/dashboard' : role ? '/access-denied' : '/login'
 }

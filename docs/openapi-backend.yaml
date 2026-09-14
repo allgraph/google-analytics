@@ -14,14 +14,14 @@ servers:
 tags:
   - {name: System, description: Проверки состояния и служебные ресурсы}
   - {name: Auth, description: Аутентификация и текущий пользователь}
-  - {name: Access, description: "Пользователи, роли, проекты и аудит"}
+  - {name: Access, description: Пользователи, роли, проекты и аудит}
   - {name: Tracking, description: Публичный browser tracking}
-  - {name: Structure, description: "Tenant, Google Ads аккаунты, сайты и телефоны"}
+  - {name: Structure, description: Tenant, Google Ads аккаунты, сайты и телефоны}
   - {name: Telephony, description: Телефония и webhooks}
   - {name: Calls, description: Звонки и атрибуция}
   - {name: Call AI, description: AI-анализ звонков}
-  - {name: CRM, description: "Клиенты, лиды, заказы и финансы"}
-  - {name: Directory, description: "Услуги, операторы, мастера и смены"}
+  - {name: CRM, description: Клиенты, лиды, заказы и финансы}
+  - {name: Directory, description: Услуги, операторы, мастера и смены}
   - {name: Analytics, description: Отчёты end-to-end аналитики}
   - {name: Google Ads, description: Синхронизация Google Ads}
   - {name: Attribution, description: Настройки алгоритма атрибуции}
@@ -29,6 +29,76 @@ tags:
 security:
   - bearerAuth: []
 paths:
+  /api/v1/google-ads/accounts/{ads_account_id}/oauth:
+    parameters:
+      - {name: ads_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      tags: [Google Ads]
+      summary: Начать официальный OAuth для одного аккаунта
+      description: Только unscoped owner/technical_admin. Сохранить Set-Cookie в том же браузере до callback. OAuth должен быть включён на сервере.
+      responses:
+        '200':
+          description: data.authorization_url; Set-Cookie для защиты callback
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [authorization_url]
+                    properties:
+                      authorization_url: {type: string, format: uri}
+        '403': {description: Требуется администратор без scopes}
+        '404': {description: Аккаунт не найден или является demo}
+  /api/v1/google-ads/oauth/callback:
+    get:
+      tags: [Google Ads]
+      summary: Callback Google OAuth
+      description: Служебный маршрут Google. Требует matching HttpOnly state cookie, одноразовый state и code.
+      security: []
+      parameters:
+        - {name: state, in: query, required: true, schema: {type: string}}
+        - {name: code, in: query, required: false, schema: {type: string}, description: Обязателен при успешной авторизации Google}
+        - {name: error, in: query, required: false, schema: {type: string}}
+      responses:
+        '200': {description: Подключено; data.connected=true и ads_account_id}
+        '400': {description: Истёкшее/невалидное/повторное состояние или отказ Google}
+        '403': {description: Нет прямого доступа либо manager account либо роль отозвана}
+        '502': {description: Ошибка Google OAuth/API}
+  /api/v1/google-ads/accounts/{ads_account_id}/connection:
+    parameters:
+      - {name: ads_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      tags: [Google Ads]
+      summary: Наличие сохранённой OAuth авторизации
+      description: Не live проверка токена; только unscoped owner/technical_admin.
+      responses:
+        '200': {description: data.connected и ads_account_id; без credentials}
+        '404': {description: Аккаунт не найден}
+    delete:
+      tags: [Google Ads]
+      summary: Удалить локальные credentials и OAuth состояния
+      description: Не удаляет историю/аккаунт и не отзывает глобальный Google grant.
+      responses:
+        '204': {description: Локальная авторизация удалена}
+  /api/v1/google-ads/accounts/{ads_account_id}/resources/{resource}:
+    get:
+      tags: [Google Ads]
+      summary: Официальное чтение ресурсов для проверки интеграции
+      description: Только unscoped settings administrator. Оригинальный Google JSON, не сохранённая analytics. costMicros не minor units.
+      parameters:
+        - {name: ads_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: resource, in: path, required: true, schema: {type: string, enum: [customer, campaigns, ad-groups, ads, keywords, search-terms, metrics, geo, conversions]}}
+        - {name: from, in: query, required: false, schema: {type: string, format: date}, description: Обязателен для metrics/geo/search-terms}
+        - {name: to, in: query, required: false, schema: {type: string, format: date}, description: Обязателен для metrics/geo/search-terms; включительно}
+        - {name: page_token, in: query, required: false, schema: {type: string}, description: Google data.nextPageToken предыдущего ответа}
+      responses:
+        '200': {description: data.results и необязательный data.nextPageToken}
+        '400': {description: Неверный ресурс/период}
+        '403': {description: Недостаточно прав}
+        '404': {description: Нет активного официального аккаунта}
+        '502': {description: Авторизация или Google Ads API недоступны}
   /health/live:
     get:
       tags: [System]
@@ -65,11 +135,16 @@ paths:
     post:
       tags: [Auth]
       summary: Вход
+      description: |
+        `tenant_id`, email и пароль отправляются первым запросом. Если у пользователя
+        включена 2FA, запрос без `totp_code`/`recovery_code` возвращает HTTP 401 с
+        `error.code=SECOND_FACTOR_REQUIRED`; после этого клиент повторяет login с
+        теми же credentials и одним из кодов второго фактора.
       security: []
       requestBody: {$ref: '#/components/requestBodies/Login'}
       responses:
         '200': {$ref: '#/components/responses/TokenPair'}
-        '401': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/LoginUnauthorized'}
         '423': {$ref: '#/components/responses/Error'}
   /api/v1/auth/refresh:
     post:
@@ -456,12 +531,18 @@ paths:
       summary: Подтвердить AI-анализ человеком
       responses: {'200': {$ref: '#/components/responses/Data'}}
   /api/v1/analytics/overview:
+    parameters:
+      - {$ref: '#/components/parameters/AdsAccountIDsFilter'}
+      - {$ref: '#/components/parameters/DataSourceFilter'}
     get:
       tags: [Analytics]
       summary: Сводные KPI
       parameters: [{$ref: '#/components/parameters/From'}, {$ref: '#/components/parameters/To'}, {$ref: '#/components/parameters/AdsAccountFilter'}, {$ref: '#/components/parameters/SiteFilter'}, {$ref: '#/components/parameters/CampaignFilter'}, {$ref: '#/components/parameters/AdGroupFilter'}, {$ref: '#/components/parameters/KeywordFilter'}, {$ref: '#/components/parameters/SearchTermFilter'}, {$ref: '#/components/parameters/AdFilter'}, {$ref: '#/components/parameters/DeviceFilter'}, {$ref: '#/components/parameters/CountryFilter'}, {$ref: '#/components/parameters/CityFilter'}, {$ref: '#/components/parameters/DistrictFilter'}, {$ref: '#/components/parameters/ServiceFilter'}, {$ref: '#/components/parameters/OperatorFilter'}, {$ref: '#/components/parameters/MasterFilter'}, {$ref: '#/components/parameters/StatusFilter'}, {$ref: '#/components/parameters/ConfidenceFilter'}]
       responses: {'200': {$ref: '#/components/responses/Data'}}
   /api/v1/analytics/breakdown:
+    parameters:
+      - {$ref: '#/components/parameters/AdsAccountIDsFilter'}
+      - {$ref: '#/components/parameters/DataSourceFilter'}
     get:
       tags: [Analytics]
       summary: Разрез аналитики
@@ -486,8 +567,40 @@ paths:
         - {$ref: '#/components/parameters/ConfidenceFilter'}
         - {$ref: '#/components/parameters/Limit'}
         - {$ref: '#/components/parameters/Offset'}
-        - {name: group_by, in: query, required: true, description: Обязательное — измерение группировки, schema: {type: string, enum: [ads_account, site, campaign, ad_group, keyword, search_term, ad, device, country, city, district, service, operator, master, status, confidence]}}
+        - {name: group_by, in: query, required: true, description: Обязательное — измерение группировки, schema: {type: string, enum: [account, site, campaign, ad_group, keyword, search_term, ad, device, country, city, district, service, operator, master, status, confidence]}}
       responses: {'200': {$ref: '#/components/responses/Data'}}
+  /api/v1/analytics/export:
+    get:
+      tags: [Analytics]
+      summary: CSV экспорт рекламных показателей
+      description: До 100000 строк, с теми же tenant/site/project scopes. CTR и Google Ads CPA пересчитываются из итогов. CRM-финансы не экспортируются.
+      parameters:
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+        - {$ref: '#/components/parameters/AdsAccountFilter'}
+        - {$ref: '#/components/parameters/AdsAccountIDsFilter'}
+        - {$ref: '#/components/parameters/DataSourceFilter'}
+        - {$ref: '#/components/parameters/CampaignFilter'}
+        - {$ref: '#/components/parameters/AdGroupFilter'}
+        - {$ref: '#/components/parameters/DeviceFilter'}
+        - {name: group_by, in: query, required: false, schema: {type: string, enum: [account, campaign, ad_group, keyword, search_term, ad, device, country, city]}}
+      responses:
+        '200': {description: CSV advertising report, content: {text/csv: {schema: {type: string}}}}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/v1/analytics/accounts/{ads_account_id}/entities/{entity}:
+    get:
+      tags: [Analytics]
+      summary: Сохранённые рекламные сущности для drill-down
+      parameters:
+        - {$ref: '#/components/parameters/AdsAccountID'}
+        - {name: entity, in: path, required: true, schema: {type: string, enum: [campaigns, ad-groups, ads, keywords, search-terms, geo]}}
+        - {$ref: '#/components/parameters/CampaignFilter'}
+        - {$ref: '#/components/parameters/AdGroupFilter'}
+        - {$ref: '#/components/parameters/Limit'}
+        - {$ref: '#/components/parameters/Offset'}
+      responses:
+        '200': {$ref: '#/components/responses/List'}
+        '400': {$ref: '#/components/responses/Error'}
   /api/v1/analytics/map:
     get:
       tags: [Analytics]
@@ -566,6 +679,8 @@ components:
       bearerFormat: JWT
       description: Access token из login/refresh без префикса Bearer.
   parameters:
+    AdsAccountIDsFilter: {name: ads_account_ids, in: query, required: false, description: Необязательно — UUID выбранных аккаунтов через запятую; не совмещать с ads_account_id, schema: {type: string}}
+    DataSourceFilter: {name: data_source, in: query, required: false, description: Необязательно — источник; demo не является официальной статистикой Google, schema: {type: string, enum: [demo, google_ads, unverified]}}
     Limit: {name: limit, in: query, required: false, description: Необязательно — размер страницы, schema: {type: integer, minimum: 1, default: 100}}
     Offset: {name: offset, in: query, required: false, description: Необязательно — смещение, schema: {type: integer, minimum: 0, default: 0}}
     From: {name: from, in: query, required: false, description: Необязательно — начало периода RFC3339 или YYYY-MM-DD, schema: {type: string}}
@@ -639,6 +754,26 @@ components:
     Data: {description: Успешный ответ, content: {application/json: {schema: {$ref: '#/components/schemas/DataEnvelope'}}}}
     List: {description: Успешный список, content: {application/json: {schema: {$ref: '#/components/schemas/ListEnvelope'}}}}
     TokenPair: {description: Access и refresh tokens, content: {application/json: {schema: {$ref: '#/components/schemas/TokenEnvelope'}}}}
+    LoginUnauthorized:
+      description: Неверные credentials/второй фактор либо требуется второй фактор
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+          examples:
+            secondFactorRequired:
+              summary: Пароль верный, но у пользователя включена 2FA
+              value:
+                error:
+                  code: SECOND_FACTOR_REQUIRED
+                  message: two-factor code is required
+                  request_id: 38f26d0a6939d3a3e1df1847605179c0
+            authenticationFailed:
+              summary: Неверные tenant_id, email или пароль
+              value:
+                error:
+                  code: AUTHENTICATION_FAILED
+                  message: authentication failed
+                  request_id: 38f26d0a6939d3a3e1df1847605179c0
     Error: {description: Ошибка, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}}
   schemas:
     DataEnvelope:
@@ -698,7 +833,7 @@ components:
         tenant_id: {type: string, format: uuid, description: Обязательное — UUID tenant}
         email: {type: string, format: email, description: Обязательное — email пользователя}
         password: {type: string, format: password, description: Обязательное — пароль}
-        totp_code: {type: string, description: "Необязательно — 6 цифр, если включена 2FA"}
+        totp_code: {type: string, description: Необязательно — 6 цифр, если включена 2FA}
         recovery_code: {type: string, description: Необязательно — recovery code вместо TOTP}
     RefreshRequest:
       type: object
@@ -818,7 +953,7 @@ components:
       required: [name, google_ads_customer_id, currency_code, country_code]
       properties:
         name: {type: string, description: Обязательное}
-        google_ads_customer_id: {type: string, description: "Обязательное — 10 цифр, дефисы допустимы"}
+        google_ads_customer_id: {type: string, description: Обязательное — 10 цифр, дефисы допустимы}
         currency_code: {type: string, minLength: 3, maxLength: 3, description: Обязательное — ISO 4217}
         country_code: {type: string, minLength: 2, maxLength: 2, description: Обязательное — ISO 3166-1 alpha-2}
         status: {type: string, enum: [active, inactive], description: Необязательно; по умолчанию active}

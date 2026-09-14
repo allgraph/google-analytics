@@ -14,6 +14,8 @@ dist-ssr
 
 # Local product materials used for Jira planning
 /project-materials/
+# Local development credentials (keep explicit even while project-materials is ignored)
+/project-materials/dev-test-accounts.json
 /.claude/
 /__pycache__/
 

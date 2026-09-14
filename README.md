@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-Локальный dev-сервер использует `.env.development`, production-сборка — `.env.production`. При деплое DEV pipeline подставляет переменные окружения, включая `VITE_API_BASE_URL=/api/v1`. В обоих окружениях сервер маршрутизирует этот относительный путь к соответствующему API; вручную переключать адреса не требуется.
+Локальный dev-сервер использует `.env.development`, production-сборка — `.env.production`. При деплое DEV pipeline подставляет `VITE_API_BASE_URL=https://api-dev.adcalltrack.de/api/v1`, поэтому браузер обращается к DEV API напрямую. Production использует собственную настройку окружения; вручную переключать адреса не требуется.
 
 ```bash
 npm run build

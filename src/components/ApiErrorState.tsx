@@ -24,7 +24,7 @@ export function ApiErrorState({ error }: ApiErrorStateProps) {
     <Alert
       showIcon
       type="error"
-      message="Ошибка загрузки"
+      title="Ошибка загрузки"
       description={
         <>
           <div>{message}</div>

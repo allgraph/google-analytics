@@ -20,6 +20,7 @@ export const apiRoutes = {
     oauth: (accountId: EntityId) => `/google-ads/accounts/${segment(accountId)}/oauth`,
     oauthCallback: '/google-ads/oauth/callback',
     connection: (accountId: EntityId) => `/google-ads/accounts/${segment(accountId)}/connection`,
+    grant: (accountId: EntityId) => `/google-ads/accounts/${segment(accountId)}/grant`,
     resource: (accountId: EntityId, resource: string) =>
       `/google-ads/accounts/${segment(accountId)}/resources/${segment(resource)}`,
     sync: (accountId: EntityId) => `/google-ads/accounts/${segment(accountId)}/sync`,

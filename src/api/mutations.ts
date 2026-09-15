@@ -9,6 +9,8 @@ import type {
   DataEnvelope,
   EntityId,
   GoogleAdsAccount,
+  GoogleAdsConnection,
+  GoogleAdsOAuthCallback,
   GoogleAdsOAuthStart,
   GoogleAdsReconcileRequest,
   GoogleAdsSyncJob,
@@ -105,11 +107,40 @@ export function useStartGoogleAdsOAuthMutation() {
   })
 }
 
+export function useCompleteGoogleAdsOAuthCallbackMutation() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (callbackPath: string) =>
+      apiRequest<DataEnvelope<GoogleAdsOAuthCallback>>(callbackPath),
+    onSuccess: async ({ data }) => invalidateAdvertisingData(client, data.ads_account_id),
+  })
+}
+
+export function useCheckGoogleAdsConnectionMutation() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (accountId: EntityId) =>
+      apiRequest<DataEnvelope<GoogleAdsConnection>>(apiRoutes.googleAds.connection(accountId)),
+    onSuccess: async (_data, accountId) => invalidateAdvertisingData(client, accountId),
+  })
+}
+
 export function useDisconnectGoogleAdsMutation() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (accountId: EntityId) =>
       apiRequest<DataEnvelope<void>>(apiRoutes.googleAds.connection(accountId), {
+        method: 'DELETE',
+      }),
+    onSuccess: async (_data, accountId) => invalidateAdvertisingData(client, accountId),
+  })
+}
+
+export function useRevokeGoogleAdsGrantMutation() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (accountId: EntityId) =>
+      apiRequest<DataEnvelope<void>>(apiRoutes.googleAds.grant(accountId), {
         method: 'DELETE',
       }),
     onSuccess: async (_data, accountId) => invalidateAdvertisingData(client, accountId),

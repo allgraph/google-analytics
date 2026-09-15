@@ -1,101 +1,55 @@
 import { describe, expect, it } from 'vitest'
 import {
-  callStatuses,
-  confidenceCategories,
   dictionaryOptions,
   getDictionaryEntry,
   getLabel,
-  leadStatusAliases,
-  leadStatuses,
-  resolveConfidence,
-  resolveLeadStatus,
+  googleAdsAccountStatuses,
+  googleAdsConnectionStatuses,
+  googleAdsEntityStatuses,
+  googleAdsSyncStatuses,
   roles,
   toneColors,
-  unattributedReasons,
 } from './dictionaries'
 
-describe('статусы заявки', () => {
-  it('описаны все 13 статусов', () => {
-    expect(Object.keys(leadStatuses)).toHaveLength(13)
+describe('Google Ads dictionaries', () => {
+  it('cover every account, connection, sync and entity status', () => {
+    expect(Object.keys(googleAdsAccountStatuses)).toEqual(['active', 'inactive'])
+    expect(Object.keys(googleAdsConnectionStatuses)).toEqual(['connected', 'disconnected', 'error'])
+    expect(Object.keys(googleAdsSyncStatuses)).toEqual(['success', 'running', 'failed', 'stale'])
+    expect(Object.keys(googleAdsEntityStatuses)).toEqual(['enabled', 'paused', 'removed'])
   })
 
-  it('у каждого статуса есть подпись и тон из палитры', () => {
-    Object.values(leadStatuses).forEach((entry) => {
-      expect(entry.label).not.toBe('')
-      expect(toneColors[entry.tone]).toBeDefined()
-    })
+  it('uses a defined palette tone for every status', () => {
+    for (const dictionary of [
+      googleAdsAccountStatuses,
+      googleAdsConnectionStatuses,
+      googleAdsSyncStatuses,
+      googleAdsEntityStatuses,
+    ]) {
+      for (const entry of Object.values(dictionary)) expect(toneColors[entry.tone]).toBeDefined()
+    }
   })
 
-  it('коды фактического API приводятся к согласованным', () => {
-    expect(resolveLeadStatus('qualified')).toBe('qualified_lead')
-    expect(resolveLeadStatus('completed')).toBe('order_completed')
-    expect(resolveLeadStatus('paid')).toBe('payment_received')
-    expect(Object.keys(leadStatusAliases)).toHaveLength(3)
-  })
-
-  it('согласованный код проходит без изменений', () => {
-    expect(resolveLeadStatus('repeat_order')).toBe('repeat_order')
-  })
-
-  it('неизвестный код не резолвится', () => {
-    expect(resolveLeadStatus('дичь')).toBeNull()
-    expect(resolveLeadStatus(null)).toBeNull()
-  })
-})
-
-describe('уверенность сопоставления', () => {
-  it('четыре категории', () => {
-    expect(Object.keys(confidenceCategories)).toHaveLength(4)
-    expect(getLabel(confidenceCategories, 'high')).toBe('Высокая')
-  })
-
-  it('бэкенд отдаёт свободную строку — неизвестное значение сводится к «не определён»', () => {
-    expect(resolveConfidence('likely')).toBe('unattributed')
-    expect(resolveConfidence(null)).toBe('unattributed')
-    expect(resolveConfidence('review')).toBe('review')
-  })
-})
-
-describe('остальные словари', () => {
-  it('четыре причины «без источника»', () => {
-    expect(Object.keys(unattributedReasons)).toHaveLength(4)
-  })
-
-  it('два статуса звонка', () => {
-    expect(getLabel(callStatuses, 'answered')).toBe('Отвечен')
-    expect(getLabel(callStatuses, 'missed')).toBe('Пропущен')
-  })
-
-  it('семь ролей', () => {
+  it('keeps role labels required by the current session UI', () => {
     expect(Object.keys(roles)).toHaveLength(7)
-  })
-
-  it('подписи ролей — как в прототипе и в описаниях экранов', () => {
     expect(getLabel(roles, 'owner')).toBe('Владелец')
-    expect(getLabel(roles, 'manager')).toBe('Руководитель')
-    expect(getLabel(roles, 'marketer')).toBe('Маркетолог')
-    expect(getLabel(roles, 'accountant')).toBe('Бухгалтер')
+    expect(getLabel(roles, 'technical_admin')).toBe('Технический администратор')
   })
 })
 
-describe('getDictionaryEntry', () => {
-  it('неизвестный код показывается как есть и не роняет экран', () => {
-    expect(getDictionaryEntry(leadStatuses, 'unknown_code')).toEqual({
-      label: 'unknown_code',
+describe('dictionary helpers', () => {
+  it('falls back to an unknown machine code without crashing', () => {
+    expect(getDictionaryEntry(googleAdsSyncStatuses, 'queued')).toEqual({
+      label: 'queued',
       tone: 'gray',
     })
+    expect(getDictionaryEntry(googleAdsSyncStatuses, null)).toBeNull()
   })
 
-  it('пустой код даёт null', () => {
-    expect(getDictionaryEntry(leadStatuses, null)).toBeNull()
-  })
-})
-
-describe('dictionaryOptions', () => {
-  it('сохраняет порядок словаря', () => {
-    expect(dictionaryOptions(callStatuses)).toEqual([
-      { value: 'answered', label: 'Отвечен' },
-      { value: 'missed', label: 'Пропущен' },
+  it('preserves declaration order in options', () => {
+    expect(dictionaryOptions(googleAdsAccountStatuses)).toEqual([
+      { value: 'active', label: 'Активен' },
+      { value: 'inactive', label: 'Отключён' },
     ])
   })
 })

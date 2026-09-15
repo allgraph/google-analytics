@@ -1,17 +1,9 @@
-/**
- * Словари: машинный код → подпись и цвет (GA-29).
- *
- * Подписи и тона взяты из прототипа
- * `project-materials/prototype/Callgraph - сквозная аналитика.html` (`statusDefs`, `confMeta`,
- * набор фильтров). Экраны не заводят собственных подписей статусов и собственных хексов.
- */
-
 import type {
-  CallStatus,
-  ConfidenceCategory,
-  LeadStatus,
+  GoogleAdsAccountStatus,
+  GoogleAdsConnectionStatus,
+  GoogleAdsEntityStatus,
+  GoogleAdsSyncStatus,
   RoleCode,
-  UnattributedReason,
 } from '../api/types'
 
 export type Tone = 'green' | 'red' | 'amber' | 'gray' | 'indigo'
@@ -23,7 +15,6 @@ export interface ToneColors {
   dot: string
 }
 
-/** Палитра бейджей прототипа: фон, текст, обводка, точка. */
 export const toneColors: Record<Tone, ToneColors> = {
   green: { bg: '#ecfdf5', fg: '#047857', border: '#a7f3d0', dot: '#10b981' },
   red: { bg: '#fff1f2', fg: '#be123c', border: '#fecdd3', dot: '#f43f5e' },
@@ -39,82 +30,39 @@ export interface DictionaryEntry {
 
 export type Dictionary<Code extends string> = Record<Code, DictionaryEntry>
 
-/** 13 статусов заявки. */
-export const leadStatuses: Dictionary<LeadStatus> = {
-  new_call: { label: 'Новый звонок', tone: 'indigo' },
-  missed: { label: 'Пропущен', tone: 'red' },
-  spam: { label: 'Спам', tone: 'gray' },
-  unsuitable: { label: 'Не подходит', tone: 'gray' },
-  price_request: { label: 'Запрос цены', tone: 'amber' },
-  qualified_lead: { label: 'Качественный лид', tone: 'indigo' },
-  master_assigned: { label: 'Назначен мастер', tone: 'indigo' },
-  master_departed: { label: 'Мастер выехал', tone: 'amber' },
-  order_completed: { label: 'Заказ выполнен', tone: 'green' },
-  payment_received: { label: 'Получена оплата', tone: 'green' },
-  cancelled: { label: 'Отменён', tone: 'red' },
-  refund: { label: 'Возврат', tone: 'red' },
-  repeat_order: { label: 'Повторный заказ', tone: 'green' },
+export const googleAdsAccountStatuses: Dictionary<GoogleAdsAccountStatus> = {
+  active: { label: 'Активен', tone: 'green' },
+  inactive: { label: 'Отключён', tone: 'gray' },
 }
 
-/**
- * Расхождение машинных кодов с фактическим API.
- *
- * `docs/openapi-backend.yaml` (строка 893) отдаёт `qualified`, `completed` и `paid` там, где
- * согласованный контракт `docs/openapi.yaml` использует `qualified_lead`, `order_completed`
- * и `payment_received`. Состав статусов совпадает, расходятся только имена — гасим здесь,
- * а не правкой типов под реализацию.
- */
-export const leadStatusAliases: Record<string, LeadStatus> = {
-  qualified: 'qualified_lead',
-  completed: 'order_completed',
-  paid: 'payment_received',
+export const googleAdsConnectionStatuses: Dictionary<GoogleAdsConnectionStatus> = {
+  connected: { label: 'Подключён', tone: 'green' },
+  disconnected: { label: 'Не подключён', tone: 'gray' },
+  error: { label: 'Ошибка', tone: 'red' },
 }
 
-export function resolveLeadStatus(raw: string | null | undefined): LeadStatus | null {
-  if (!raw) return null
-  if (raw in leadStatuses) return raw as LeadStatus
-  return leadStatusAliases[raw] ?? null
+export const googleAdsSyncStatuses: Dictionary<GoogleAdsSyncStatus> = {
+  success: { label: 'Синхронизирован', tone: 'green' },
+  running: { label: 'Синхронизация', tone: 'indigo' },
+  failed: { label: 'Ошибка', tone: 'red' },
+  stale: { label: 'Данные устарели', tone: 'amber' },
 }
 
-/** Уверенность сопоставления. */
-export const confidenceCategories: Dictionary<ConfidenceCategory> = {
-  high: { label: 'Высокая', tone: 'green' },
-  probable: { label: 'Вероятное', tone: 'indigo' },
-  review: { label: 'Проверка', tone: 'amber' },
-  unattributed: { label: 'Не определён', tone: 'gray' },
+export const googleAdsEntityStatuses: Dictionary<GoogleAdsEntityStatus> = {
+  enabled: { label: 'Включено', tone: 'green' },
+  paused: { label: 'Приостановлено', tone: 'amber' },
+  removed: { label: 'Удалено', tone: 'gray' },
 }
 
-/**
- * Бэкенд объявляет `confidence` свободной строкой без enum (`docs/openapi-backend.yaml`,
- * строка 588), поэтому неизвестное значение сводим к «не определён», а не роняем экран.
- */
-export function resolveConfidence(raw: string | null | undefined): ConfidenceCategory {
-  return raw && raw in confidenceCategories ? (raw as ConfidenceCategory) : 'unattributed'
-}
-
-/** Причины «без источника». */
-export const unattributedReasons: Dictionary<UnattributedReason> = {
-  over_five_minutes: { label: 'Прошло больше 5 минут', tone: 'gray' },
-  no_phone_click: { label: 'Нет нажатия на номер', tone: 'gray' },
-  multiple_candidates: { label: 'Несколько кандидатов', tone: 'amber' },
-  direct_call: { label: 'Прямой звонок', tone: 'gray' },
-}
-
-/** Статус звонка. */
-export const callStatuses: Dictionary<CallStatus> = {
-  answered: { label: 'Отвечен', tone: 'green' },
-  missed: { label: 'Пропущен', tone: 'red' },
-}
-
-export type DeviceCode = 'mobile' | 'tablet' | 'desktop'
+export type DeviceCode = 'MOBILE' | 'TABLET' | 'DESKTOP' | 'OTHER'
 
 export const devices: Dictionary<DeviceCode> = {
-  mobile: { label: 'Мобильный', tone: 'gray' },
-  tablet: { label: 'Планшет', tone: 'gray' },
-  desktop: { label: 'Компьютер', tone: 'gray' },
+  MOBILE: { label: 'Мобильный', tone: 'gray' },
+  TABLET: { label: 'Планшет', tone: 'gray' },
+  DESKTOP: { label: 'Компьютер', tone: 'gray' },
+  OTHER: { label: 'Другой', tone: 'gray' },
 }
 
-/** Семь ролей из `docs/api-contract.md`. */
 export const roles: Dictionary<RoleCode> = {
   owner: { label: 'Владелец', tone: 'indigo' },
   manager: { label: 'Руководитель', tone: 'indigo' },
@@ -125,10 +73,6 @@ export const roles: Dictionary<RoleCode> = {
   technical_admin: { label: 'Технический администратор', tone: 'amber' },
 }
 
-/**
- * Подпись и тон по коду. Неизвестный код показываем как есть — экран не должен падать
- * из-за значения, которого нет в словаре.
- */
 export function getDictionaryEntry<Code extends string>(
   dictionary: Dictionary<Code>,
   code: string | null | undefined,
@@ -144,7 +88,6 @@ export function getLabel<Code extends string>(
   return getDictionaryEntry(dictionary, code)?.label ?? null
 }
 
-/** Список вариантов для фильтров и селектов — в порядке объявления словаря. */
 export function dictionaryOptions<Code extends string>(
   dictionary: Dictionary<Code>,
 ): { value: Code; label: string }[] {

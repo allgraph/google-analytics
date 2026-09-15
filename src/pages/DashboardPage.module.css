@@ -1,214 +1,363 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 
-.header,
-.sectionHeading {
+.header {
   display: flex;
-  align-items: flex-start;
+  min-height: 36px;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
-.header p,
-.sectionHeading p {
-  margin-top: 4px;
-  color: var(--color-secondary);
-  font-size: 13px;
+.titleLine {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 12px;
 }
 
-.filters.filters,
-.kpiCard.kpiCard,
-.stateCard.stateCard {
-  border-color: var(--color-border);
+.titleLine h1 {
+  margin: 0;
+  color: var(--color-heading);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.titleLine span {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.controlStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: white;
   box-shadow: var(--shadow-card);
 }
 
-.filterGrid {
-  display: grid;
-  grid-template-columns: minmax(280px, 2fr) minmax(220px, 1fr);
-  gap: 16px;
-}
-
-.filterField {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.filterField label {
-  color: var(--color-heading);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.filterField :global(.ant-select) {
-  width: 100%;
-}
-
-.filterMeta {
-  display: flex;
+.filterButton.filterButton {
+  display: inline-flex;
+  max-width: 330px;
+  height: 36px;
   align-items: center;
-  min-height: 24px;
-  color: var(--color-muted);
-  font-size: 12px;
+  gap: 7px;
+  padding-inline: 12px;
+  border-color: var(--color-border);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.filterMeta button {
-  margin-left: auto;
-  padding-inline: 0;
+.filterButton.filterButton:hover,
+.filterButton.filterButton:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primaryText);
+}
+
+.filterButtonActive.filterButtonActive {
+  border-color: var(--color-primaryBorder);
+  background: var(--color-primaryBackground);
+  color: var(--color-primaryText);
+}
+
+.filterButtonLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rangeLabel {
-  min-height: 24px;
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 24px;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountMenu,
+.periodMenu {
+  padding: 6px;
+}
+
+.accountMenu {
+  width: min(330px, calc(100vw - 40px));
+}
+
+.accountMenuActions {
+  display: flex;
+  gap: 6px;
+  padding: 4px 6px 7px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--color-subtle);
+}
+
+.accountMenuActions button {
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: white;
+  color: var(--color-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.accountMenuActions button:hover,
+.accountMenuActions button:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primaryText);
+}
+
+.accountMenuList {
+  display: flex;
+  max-height: 320px;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+}
+
+.accountMenuList > button,
+.periodMenu > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.accountMenuList > button:hover,
+.accountMenuList > button:focus-visible,
+.periodMenu > button:hover,
+.periodMenu > button:focus-visible,
+.accountOptionSelected,
+.periodOptionSelected {
+  background: var(--color-subtle);
+}
+
+.accountMenuList input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 16px;
+  accent-color: var(--color-primary);
+  pointer-events: none;
+}
+
+.accountName {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+}
+
+.connected {
+  background: var(--color-success);
+}
+
+.disconnected {
+  background: var(--color-muted);
+}
+
+.error {
+  background: var(--color-error);
+}
+
+.customerId {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.periodMenu {
+  width: min(240px, calc(100vw - 40px));
+}
+
+.periodMenu > button {
+  justify-content: space-between;
+}
+
+.periodCheck {
+  color: var(--color-primaryText);
+  font-size: 12px;
 }
 
 .customRange {
   display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding-top: 4px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px 6px 4px;
+  margin-top: 4px;
   border-top: 1px solid var(--color-subtle);
+}
+
+.customRange :global(.ant-input) {
+  height: 30px;
+  padding-inline: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 .kpiSection {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.sectionHeading h2 {
-  color: var(--color-heading);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 22px;
+  gap: 10px;
 }
 
 .kpiGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
-.kpiCard :global(.ant-card-body) {
+.kpiCard {
   display: flex;
-  min-height: 124px;
+  min-width: 0;
+  min-height: 78px;
   flex-direction: column;
+  gap: 5px;
+  padding: 13px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
 }
 
-.kpiHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--color-secondary);
+.kpiLabel {
+  overflow: hidden;
+  color: var(--color-muted);
   font-size: 12px;
-  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.kpiIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  border-radius: 8px;
-  background: var(--color-primaryBackground);
-  color: var(--color-primaryText);
-}
-
-.kpiValue {
-  margin-top: auto;
-  padding-top: 20px;
+.kpiValue,
+.currencyValue {
+  overflow: hidden;
   color: var(--color-heading);
-  font-family: var(--font-mono);
-  font-size: 25px;
+  font-size: 21px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  line-height: 32px;
+  letter-spacing: -0.01em;
+  line-height: 29px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .currencyValues {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  margin-top: auto;
-  padding-top: 14px;
+  gap: 3px;
 }
 
 .currencyValue {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.currencyValue strong {
-  overflow: hidden;
-  color: var(--color-heading);
-  font-family: var(--font-mono);
-  font-size: 18px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 26px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.currencyValue :global(.ant-tag) {
-  min-width: 40px;
-  margin: 0;
-  text-align: center;
+  min-width: 0;
+  font-size: 17px;
+  line-height: 24px;
 }
 
 .state {
   display: flex;
+  min-height: 240px;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
 }
 
-.state,
-.stateCard :global(.ant-card-body) {
-  min-height: 240px;
+.stateCard.stateCard {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-card);
 }
 
 .stateCard :global(.ant-card-body) {
   display: flex;
+  min-height: 240px;
   align-items: center;
   justify-content: center;
 }
 
 @media (max-width: 639px) {
+  .page {
+    gap: 12px;
+  }
+
   .header {
+    align-items: flex-start;
+  }
+
+  .titleLine {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .titleLine span {
+    max-width: 210px;
+  }
+
+  .header > button {
+    padding-inline: 10px;
+    font-size: 0;
+  }
+
+  .controlStrip {
+    align-items: stretch;
     flex-direction: column;
   }
 
-  .header button {
+  .filterButton.filterButton {
     width: 100%;
+    max-width: none;
+    justify-content: flex-start;
   }
 
-  .filterGrid,
-  .customRange,
+  .filterButtonLabel {
+    flex: 1;
+    text-align: left;
+  }
+
+  .rangeLabel {
+    padding: 2px 4px 0;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 459px) {
   .kpiGrid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .customRange {
-    grid-column: auto;
-  }
-
-  .sectionHeading {
-    align-items: center;
   }
 }
 

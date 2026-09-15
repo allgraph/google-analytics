@@ -1,17 +1,5 @@
-import { Alert, Button, Card, Empty, Input, Select, Skeleton, Tag } from 'antd'
-import type { LucideIcon } from 'lucide-react'
-import {
-  BadgePercent,
-  Banknote,
-  ChartNoAxesCombined,
-  CircleDollarSign,
-  Coins,
-  Eye,
-  MousePointerClick,
-  Percent,
-  RefreshCw,
-  Target,
-} from 'lucide-react'
+import { Alert, Button, Card, Empty, Input, Popover, Skeleton } from 'antd'
+import { CalendarDays, ChevronDown, RefreshCw, UsersRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdsAccountsQuery, useAnalyticsOverviewQuery } from '../api/hooks'
@@ -60,38 +48,35 @@ interface KpiValue {
   value: string
 }
 
-function KpiCard({
-  label,
-  icon: Icon,
-  value,
-  values,
-}: {
-  label: string
-  icon: LucideIcon
-  value?: string
-  values?: KpiValue[]
-}) {
-  return (
-    <Card className={styles.kpiCard} variant="outlined">
-      <div className={styles.kpiHeader}>
-        <span>{label}</span>
-        <span className={styles.kpiIcon} aria-hidden>
-          <Icon size={16} />
-        </span>
+function KpiCard({ label, value, values }: { label: string; value?: string; values?: KpiValue[] }) {
+  if (values?.length === 1) {
+    return (
+      <div className={styles.kpiCard}>
+        <span className={styles.kpiLabel}>{label}</span>
+        <strong className={styles.kpiValue}>{values[0].value}</strong>
       </div>
+    )
+  }
+
+  return (
+    <div className={styles.kpiCard}>
+      <span className={styles.kpiLabel}>{label}</span>
       {values ? (
-        <div className={styles.currencyValues}>
-          {values.map((item) => (
-            <div key={item.currency} className={styles.currencyValue}>
-              <strong>{item.value}</strong>
-              <Tag>{item.currency}</Tag>
-            </div>
-          ))}
-        </div>
+        values.length ? (
+          <div className={styles.currencyValues}>
+            {values.map((item) => (
+              <strong key={item.currency} className={styles.currencyValue}>
+                {item.value}
+              </strong>
+            ))}
+          </div>
+        ) : (
+          <strong className={styles.kpiValue}>{EMPTY_VALUE}</strong>
+        )
       ) : (
         <strong className={styles.kpiValue}>{value ?? EMPTY_VALUE}</strong>
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -100,6 +85,173 @@ function currencyValues(
   format: (total: AnalyticsMetricTotal) => string,
 ): KpiValue[] {
   return totals.map((total) => ({ currency: total.spend.currency, value: format(total) }))
+}
+
+function AccountPicker({
+  accounts,
+  selectedIds,
+  allSelected,
+  loading,
+  onChange,
+  onSelectAll,
+}: {
+  accounts: GoogleAdsAccount[]
+  selectedIds: string[]
+  allSelected: boolean
+  loading: boolean
+  onChange: (ids: string[]) => void
+  onSelectAll: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = new Set(selectedIds)
+  const label = allSelected
+    ? 'Все аккаунты'
+    : selectedIds.length === 0
+      ? 'Аккаунты не выбраны'
+      : selectedIds.length === 1
+        ? (accounts.find((account) => account.id === selectedIds[0])?.name ?? '1 аккаунт')
+        : `Аккаунтов: ${selectedIds.length}`
+
+  const toggleAccount = (accountId: string) => {
+    const nextIds = selected.has(accountId)
+      ? selectedIds.filter((id) => id !== accountId)
+      : [...selectedIds, accountId]
+    onChange(nextIds)
+  }
+
+  const content = (
+    <div className={styles.accountMenu} role="menu" aria-label="Google Ads аккаунты">
+      <div className={styles.accountMenuActions}>
+        <button type="button" onClick={onSelectAll}>
+          Все аккаунты
+        </button>
+        <button type="button" onClick={() => onChange([])}>
+          Снять всё
+        </button>
+      </div>
+      <div className={styles.accountMenuList}>
+        {accounts.map((account) => {
+          const checked = selected.has(account.id)
+          return (
+            <button
+              key={account.id}
+              type="button"
+              className={checked ? styles.accountOptionSelected : undefined}
+              role="menuitemcheckbox"
+              aria-checked={checked}
+              onClick={() => toggleAccount(account.id)}
+            >
+              <input type="checkbox" checked={checked} readOnly tabIndex={-1} />
+              <span className={styles.accountName}>{account.name}</span>
+              <span
+                className={`${styles.statusDot} ${styles[account.connection_status]}`}
+                title={accountStatusLabels[account.connection_status]}
+                aria-label={accountStatusLabels[account.connection_status]}
+              />
+              <span className={styles.customerId}>{account.google_ads_customer_id}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  return (
+    <Popover
+      content={content}
+      open={open}
+      placement="bottomLeft"
+      trigger="click"
+      onOpenChange={setOpen}
+    >
+      <Button
+        className={`${styles.filterButton} ${!allSelected ? styles.filterButtonActive : ''}`}
+        disabled={!accounts.length}
+        loading={loading}
+        aria-label="Выбрать Google Ads аккаунты"
+        aria-expanded={open}
+      >
+        <UsersRound size={15} />
+        <span className={styles.filterButtonLabel}>{label}</span>
+        <ChevronDown size={12} />
+      </Button>
+    </Popover>
+  )
+}
+
+function PeriodPicker({
+  period,
+  customRange,
+  onPeriodChange,
+  onCustomRangeChange,
+}: {
+  period: PeriodPreset
+  customRange: CustomPeriodRange
+  onPeriodChange: (period: PeriodPreset) => void
+  onCustomRangeChange: (range: CustomPeriodRange) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  const content = (
+    <div className={styles.periodMenu} role="menu" aria-label="Период">
+      {dashboardPeriodPresets.map((preset) => (
+        <button
+          key={preset}
+          type="button"
+          className={preset === period ? styles.periodOptionSelected : undefined}
+          role="menuitemradio"
+          aria-checked={preset === period}
+          onClick={() => {
+            onPeriodChange(preset)
+            if (preset !== 'custom') setOpen(false)
+          }}
+        >
+          <span>{periodLabels[preset]}</span>
+          {preset === period ? <span className={styles.periodCheck}>✓</span> : null}
+        </button>
+      ))}
+      {period === 'custom' ? (
+        <div className={styles.customRange}>
+          <Input
+            aria-label="Дата с"
+            type="date"
+            max={customRange.to || undefined}
+            value={customRange.from}
+            onChange={(event) => onCustomRangeChange({ ...customRange, from: event.target.value })}
+          />
+          <Input
+            aria-label="Дата по"
+            type="date"
+            min={customRange.from || undefined}
+            value={customRange.to}
+            onChange={(event) => onCustomRangeChange({ ...customRange, to: event.target.value })}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+
+  return (
+    <Popover
+      content={content}
+      open={open}
+      placement="bottomLeft"
+      trigger="click"
+      onOpenChange={setOpen}
+    >
+      <Button className={styles.filterButton} aria-label="Выбрать период" aria-expanded={open}>
+        <CalendarDays size={15} />
+        <span className={styles.filterButtonLabel}>{periodLabels[period]}</span>
+        <ChevronDown size={12} />
+      </Button>
+    </Popover>
+  )
+}
+
+function daysInRange(from: unknown, to: unknown) {
+  const start = new Date(`${String(from)}T00:00:00`)
+  const end = new Date(`${String(to)}T00:00:00`)
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
 }
 
 export function DashboardPage() {
@@ -137,21 +289,24 @@ export function DashboardPage() {
   }
 
   const rangeLabel = overviewParams
-    ? `${formatDashboardDay(String(overviewParams.from))} — ${formatDashboardDay(String(overviewParams.to))}`
+    ? `${formatDashboardDay(String(overviewParams.from))} — ${formatDashboardDay(
+        String(overviewParams.to),
+      )} · ${daysInRange(overviewParams.from, overviewParams.to)} дн.`
     : 'Укажите корректный диапазон'
 
-  const kpiContent = () => {
-    if (accountsQuery.isPending) {
-      return (
-        <div className={styles.kpiGrid} aria-label="Загрузка KPI">
-          {Array.from({ length: 10 }, (_, index) => (
-            <Card key={index} className={styles.kpiCard}>
-              <Skeleton active paragraph={{ rows: 1 }} title={{ width: '45%' }} />
-            </Card>
-          ))}
+  const loadingGrid = (
+    <div className={styles.kpiGrid} aria-label="Загрузка KPI">
+      {Array.from({ length: 10 }, (_, index) => (
+        <div key={index} className={styles.kpiCard}>
+          <Skeleton active paragraph={false} title={{ width: index % 2 ? '70%' : '54%' }} />
+          <Skeleton active paragraph={false} title={{ width: index % 3 ? '48%' : '62%' }} />
         </div>
-      )
-    }
+      ))}
+    </div>
+  )
+
+  const kpiContent = () => {
+    if (accountsQuery.isPending) return loadingGrid
 
     if (accountsQuery.isError) {
       return (
@@ -203,17 +358,7 @@ export function DashboardPage() {
       )
     }
 
-    if (overviewQuery.isPending) {
-      return (
-        <div className={styles.kpiGrid} aria-label="Загрузка KPI">
-          {Array.from({ length: 10 }, (_, index) => (
-            <Card key={index} className={styles.kpiCard}>
-              <Skeleton active paragraph={{ rows: 1 }} title={{ width: '45%' }} />
-            </Card>
-          ))}
-        </div>
-      )
-    }
+    if (overviewQuery.isPending) return loadingGrid
 
     if (!totals.length) {
       return (
@@ -225,55 +370,38 @@ export function DashboardPage() {
 
     return (
       <>
-        {summary.currencyTotals.length > 1 ? (
-          <Alert
-            showIcon
-            type="info"
-            title="Денежные KPI разделены по валютам"
-            description="Суммы, CPC, CPA, Conversion Value и ROAS нельзя корректно объединить без конвертации валют."
-          />
-        ) : null}
         <div className={styles.kpiGrid}>
           <KpiCard
             label="Расход"
-            icon={Banknote}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoneyCompact(total.spend),
             )}
           />
-          <KpiCard label="Показы" icon={Eye} value={formatNumber(summary.impressions)} />
-          <KpiCard label="Клики" icon={MousePointerClick} value={formatNumber(summary.clicks)} />
-          <KpiCard label="CTR" icon={Percent} value={formatPercent(summary.ctr)} />
+          <KpiCard label="Показы" value={formatNumber(summary.impressions)} />
+          <KpiCard label="Клики" value={formatNumber(summary.clicks)} />
+          <KpiCard label="CTR" value={formatPercent(summary.ctr)} />
           <KpiCard
             label="Средний CPC"
-            icon={Coins}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoney(total.average_cpc),
             )}
           />
-          <KpiCard label="Конверсии" icon={Target} value={formatNumber(summary.conversions)} />
-          <KpiCard
-            label="Conversion Rate"
-            icon={BadgePercent}
-            value={formatPercent(summary.conversionRate)}
-          />
+          <KpiCard label="Конверсии" value={formatNumber(summary.conversions)} />
+          <KpiCard label="Conversion Rate" value={formatPercent(summary.conversionRate)} />
           <KpiCard
             label="CPA"
-            icon={CircleDollarSign}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoneyCompact(total.cpa),
             )}
           />
           <KpiCard
             label="Conversion Value"
-            icon={ChartNoAxesCombined}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoneyCompact(total.conversion_value),
             )}
           />
           <KpiCard
             label="ROAS"
-            icon={ChartNoAxesCombined}
             values={currencyValues(summary.currencyTotals, (total) =>
               total.roas === null ? EMPTY_VALUE : `${formatNumber(total.roas)}×`,
             )}
@@ -286,11 +414,12 @@ export function DashboardPage() {
   return (
     <div className={`${pageStyles.page} ${styles.page}`}>
       <header className={styles.header}>
-        <div>
-          <h1 className={pageStyles.title}>Dashboard</h1>
-          <p>Сводка Google Ads по выбранным аккаунтам и периоду</p>
+        <div className={styles.titleLine}>
+          <h1>Dashboard</h1>
+          <span>сводка по выбранным аккаунтам</span>
         </div>
         <Button
+          type="primary"
           icon={<RefreshCw size={15} />}
           loading={accountsQuery.isFetching || overviewQuery.isFetching}
           onClick={() => {
@@ -302,96 +431,25 @@ export function DashboardPage() {
         </Button>
       </header>
 
-      <Card className={styles.filters} variant="outlined">
-        <div className={styles.filterGrid}>
-          <div className={styles.filterField}>
-            <label htmlFor="dashboard-accounts">Google Ads аккаунты</label>
-            <Select
-              id="dashboard-accounts"
-              mode="multiple"
-              allowClear
-              maxTagCount={2}
-              maxTagPlaceholder={(omitted) =>
-                allAccountsSelected ? 'Все аккаунты' : `Ещё: ${omitted.length}`
-              }
-              placeholder="Выберите аккаунты"
-              loading={accountsQuery.isPending}
-              value={selectedAccountIds}
-              options={accounts.map((account) => ({
-                value: account.id,
-                label: `${account.name} · ${account.currency_code} · ${accountStatusLabels[account.connection_status]}`,
-              }))}
-              onChange={handleAccountChange}
-            />
-            <div className={styles.filterMeta}>
-              <span>
-                {allAccountsSelected
-                  ? `Все аккаунты: ${accounts.length}`
-                  : `Выбрано: ${selectedAccountIds.length} из ${accounts.length}`}
-              </span>
-              {accounts.length ? (
-                <Button type="link" size="small" onClick={() => setAccountSelection(null)}>
-                  Выбрать все
-                </Button>
-              ) : null}
-            </div>
-          </div>
+      <div className={styles.controlStrip} aria-label="Фильтры Dashboard">
+        <AccountPicker
+          accounts={accounts}
+          selectedIds={selectedAccountIds}
+          allSelected={allAccountsSelected}
+          loading={accountsQuery.isPending}
+          onChange={handleAccountChange}
+          onSelectAll={() => setAccountSelection(null)}
+        />
+        <PeriodPicker
+          period={period}
+          customRange={customRange}
+          onPeriodChange={setPeriod}
+          onCustomRangeChange={setCustomRange}
+        />
+        <span className={styles.rangeLabel}>{rangeLabel}</span>
+      </div>
 
-          <div className={styles.filterField}>
-            <label htmlFor="dashboard-period">Период</label>
-            <Select
-              id="dashboard-period"
-              value={period}
-              options={dashboardPeriodPresets.map((value) => ({
-                value,
-                label: periodLabels[value],
-              }))}
-              onChange={setPeriod}
-            />
-            <span className={styles.rangeLabel}>{rangeLabel}</span>
-          </div>
-
-          {period === 'custom' ? (
-            <div className={styles.customRange}>
-              <div className={styles.filterField}>
-                <label htmlFor="dashboard-date-from">Дата с</label>
-                <Input
-                  id="dashboard-date-from"
-                  type="date"
-                  max={customRange.to || undefined}
-                  value={customRange.from}
-                  onChange={(event) =>
-                    setCustomRange((current) => ({ ...current, from: event.target.value }))
-                  }
-                />
-              </div>
-              <div className={styles.filterField}>
-                <label htmlFor="dashboard-date-to">Дата по</label>
-                <Input
-                  id="dashboard-date-to"
-                  type="date"
-                  min={customRange.from || undefined}
-                  value={customRange.to}
-                  onChange={(event) =>
-                    setCustomRange((current) => ({ ...current, to: event.target.value }))
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </Card>
-
-      <section className={styles.kpiSection} aria-labelledby="dashboard-kpi-title">
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2 id="dashboard-kpi-title">Ключевые показатели</h2>
-            <p>{rangeLabel}</p>
-          </div>
-          <Tag color="blue">
-            {allAccountsSelected ? 'Все аккаунты' : `Аккаунтов: ${selectedAccountIds.length}`}
-          </Tag>
-        </div>
+      <section className={styles.kpiSection} aria-label="Ключевые показатели">
         {kpiContent()}
       </section>
     </div>

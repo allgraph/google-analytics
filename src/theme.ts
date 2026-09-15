@@ -13,6 +13,7 @@ export const palette = {
   primary: '#4f39f6',
   primaryText: '#432dd7',
   primaryBackground: '#eef2ff',
+  primaryBorder: '#c6d2ff',
   avatarBackground: '#e0e7ff',
   success: '#009966',
   error: '#ec003f',

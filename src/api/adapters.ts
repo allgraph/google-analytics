@@ -20,6 +20,10 @@ import type {
   GoogleAdsDimensionDto,
   GoogleAdsEntity,
   GoogleAdsEntityDto,
+  GoogleAdsKeyword,
+  GoogleAdsKeywordDto,
+  GoogleAdsSearchTerm,
+  GoogleAdsSearchTermDto,
   GoogleAdsBreakdownRow,
   GoogleAdsBreakdownRowDto,
 } from './types'
@@ -163,6 +167,14 @@ export function normalizeAdvertisingMetrics(metrics: AdvertisingMetricsDto): Adv
 }
 
 export function normalizeGoogleAdsEntity(entity: GoogleAdsEntityDto): GoogleAdsEntity {
+  return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
+}
+
+export function normalizeGoogleAdsKeyword(entity: GoogleAdsKeywordDto): GoogleAdsKeyword {
+  return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
+}
+
+export function normalizeGoogleAdsSearchTerm(entity: GoogleAdsSearchTermDto): GoogleAdsSearchTerm {
   return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
 }
 

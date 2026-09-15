@@ -1,6 +1,7 @@
 import { Button, Empty, Select, Skeleton, Table } from 'antd'
 import type { TableColumnsType, TableProps } from 'antd'
 import type { SorterResult } from 'antd/es/table/interface'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Key } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { ListEnvelope } from '../../api/types'
@@ -45,8 +46,18 @@ export function DataTable<T extends object>({
   onSelectedKeysChange,
   emptyText = 'По заданным условиям записей нет',
 }: DataTableProps<T>) {
-  if (query.isPending) return <Skeleton active paragraph={{ rows: 8 }} />
-  if (query.isError) return <ApiErrorState error={query.error} />
+  if (query.isPending)
+    return (
+      <div className={styles.state}>
+        <Skeleton active paragraph={{ rows: 8 }} />
+      </div>
+    )
+  if (query.isError)
+    return (
+      <div className={styles.state}>
+        <ApiErrorState error={query.error} />
+      </div>
+    )
 
   const rows = query.data?.data ?? []
   const meta = query.data?.meta
@@ -58,7 +69,7 @@ export function DataTable<T extends object>({
       return
     }
     filters.setSort(
-      String(single.field ?? single.columnKey),
+      String(single.columnKey ?? single.field),
       single.order === 'ascend' ? 'asc' : 'desc',
     )
   }
@@ -76,9 +87,11 @@ export function DataTable<T extends object>({
       ) : null}
 
       <Table<T>
+        className={styles.table}
         columns={columns}
         dataSource={rows}
         rowKey={rowKey}
+        size="middle"
         pagination={false}
         scroll={{ x: 'max-content' }}
         onChange={handleChange}
@@ -165,36 +178,52 @@ function TableFooter({
 }) {
   return (
     <div className={styles.footer}>
-      <Select
-        size="small"
-        value={filters.perPage}
-        className={styles.pageSize}
-        onChange={filters.setPerPage}
-        options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
-      />
+      <div className={styles.footerGroup}>
+        <span className={styles.footerLabel}>Строк на странице</span>
+        <Select
+          size="small"
+          value={filters.perPage}
+          className={styles.pageSize}
+          onChange={filters.setPerPage}
+          options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
+        />
+      </div>
+
       <span className={styles.range}>
         {/* Общее число записей бэкенд не отдаёт (GA-31): пагинация работает в режиме
             «есть ли следующая страница». */}
-        Показано {from}–{to} из <PendingData id="lists.total" variant="cell" />
+        {to > 0 ? (
+          <>
+            Показано {from}–{to} из <PendingData id="lists.total" variant="cell" />
+          </>
+        ) : (
+          'Записей нет'
+        )}
       </span>
-      <span className={styles.spacer} />
-      <Button
-        size="small"
-        aria-label="Предыдущая страница"
-        disabled={filters.page <= 1}
-        onClick={() => filters.setPage(filters.page - 1)}
-      >
-        ‹
-      </Button>
-      <span className={styles.page}>{filters.page}</span>
-      <Button
-        size="small"
-        aria-label="Следующая страница"
-        disabled={!hasNextPage}
-        onClick={() => filters.setPage(filters.page + 1)}
-      >
-        ›
-      </Button>
+
+      <nav className={styles.pager} aria-label="Страницы">
+        <button
+          type="button"
+          className={styles.pagerButton}
+          aria-label="Предыдущая страница"
+          disabled={filters.page <= 1}
+          onClick={() => filters.setPage(filters.page - 1)}
+        >
+          <ChevronLeft size={15} aria-hidden />
+        </button>
+        <span className={styles.pagerCurrent} aria-current="page">
+          {filters.page}
+        </span>
+        <button
+          type="button"
+          className={styles.pagerButton}
+          aria-label="Следующая страница"
+          disabled={!hasNextPage}
+          onClick={() => filters.setPage(filters.page + 1)}
+        >
+          <ChevronRight size={15} aria-hidden />
+        </button>
+      </nav>
     </div>
   )
 }

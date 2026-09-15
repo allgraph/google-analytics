@@ -7,6 +7,8 @@ import {
   normalizeAnalyticsOverview,
   normalizeGoogleAdsDimension,
   normalizeGoogleAdsEntity,
+  normalizeGoogleAdsKeyword,
+  normalizeGoogleAdsSearchTerm,
   withApiQuery,
   type FormQueryParams,
 } from './adapters'
@@ -30,6 +32,8 @@ import type {
   GoogleAdsEntitiesQuery,
   GoogleAdsEntity,
   GoogleAdsEntityDto,
+  GoogleAdsKeyword,
+  GoogleAdsSearchTerm,
   GoogleAdsSyncError,
   GoogleAdsSyncHistoryQuery,
   GoogleAdsSyncJob,
@@ -153,6 +157,7 @@ export function useAnalyticsBreakdownQuery(
 export function useGoogleAdsEntitiesQuery(
   accountId: EntityId,
   params: GoogleAdsEntitiesQuery,
+  options: ApiQueryOptions = {},
 ): UseQueryResult<ListEnvelope<GoogleAdsEntity | GoogleAdsDimension>, ApiError> {
   const { entity, ...filters } = params
   return useQuery({
@@ -172,7 +177,58 @@ export function useGoogleAdsEntitiesQuery(
         'id' in row ? normalizeGoogleAdsEntity(row) : normalizeGoogleAdsDimension(row),
       )
     },
+    ...options,
   })
+}
+
+function useTypedGoogleAdsEntitiesQuery<TDto extends GoogleAdsEntityDto, T extends GoogleAdsEntity>(
+  accountId: EntityId,
+  params: GoogleAdsEntitiesQuery,
+  normalize: (row: TDto) => T,
+  options: ApiQueryOptions = {},
+): UseQueryResult<ListEnvelope<T>, ApiError> {
+  const { entity, ...filters } = params
+  return useQuery({
+    queryKey: queryKeys.list(
+      serverEntities.googleAdsEntities,
+      { accountId, entity, ...filters },
+      normalizedPage(params),
+    ),
+    queryFn: async ({ signal }) => {
+      const envelope = await apiRequest<ListEnvelope<TDto>>(
+        withApiQuery(apiRoutes.analytics.entities(accountId, entity), filters),
+        { signal },
+      )
+      return mapListEnvelope(envelope, normalize)
+    },
+    ...options,
+  })
+}
+
+export function useGoogleAdsKeywordsQuery(
+  accountId: EntityId,
+  params: Omit<GoogleAdsEntitiesQuery, 'entity'>,
+  options: ApiQueryOptions = {},
+): UseQueryResult<ListEnvelope<GoogleAdsKeyword>, ApiError> {
+  return useTypedGoogleAdsEntitiesQuery(
+    accountId,
+    { ...params, entity: 'keywords' },
+    normalizeGoogleAdsKeyword,
+    options,
+  )
+}
+
+export function useGoogleAdsSearchTermsQuery(
+  accountId: EntityId,
+  params: Omit<GoogleAdsEntitiesQuery, 'entity'>,
+  options: ApiQueryOptions = {},
+): UseQueryResult<ListEnvelope<GoogleAdsSearchTerm>, ApiError> {
+  return useTypedGoogleAdsEntitiesQuery(
+    accountId,
+    { ...params, entity: 'search-terms' },
+    normalizeGoogleAdsSearchTerm,
+    options,
+  )
 }
 
 export function useGoogleAdsMapQuery(

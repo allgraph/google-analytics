@@ -24,6 +24,12 @@ const PendingRegistryPage = lazy(() =>
     default: PendingRegistryPage,
   })),
 )
+const KeywordsPage = lazy(() =>
+  import('./pages/KeywordsPage').then(({ KeywordsPage }) => ({ default: KeywordsPage })),
+)
+const SearchTermsPage = lazy(() =>
+  import('./pages/SearchTermsPage').then(({ SearchTermsPage }) => ({ default: SearchTermsPage })),
+)
 
 function LazyRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -40,8 +46,6 @@ const placeholderRoutes: ReadonlyArray<{ section: Section; path: string; title: 
   { section: 'campaigns', path: appRoutes.campaigns, title: 'Campaigns' },
   { section: 'adGroups', path: appRoutes.adGroups, title: 'Ad Groups' },
   { section: 'ads', path: appRoutes.ads, title: 'Ads' },
-  { section: 'keywords', path: appRoutes.keywords, title: 'Keywords' },
-  { section: 'searchTerms', path: appRoutes.searchTerms, title: 'Search Terms' },
   { section: 'geography', path: appRoutes.geography, title: 'Geography' },
   { section: 'devices', path: appRoutes.devices, title: 'Devices' },
   { section: 'syncStatus', path: appRoutes.syncStatus, title: 'Sync / System Status' },
@@ -67,6 +71,26 @@ export default function App() {
                 />
               </Route>
             ))}
+            <Route element={<SectionRoute section="keywords" />}>
+              <Route
+                path={appRoutes.keywords}
+                element={
+                  <LazyRoute>
+                    <KeywordsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="searchTerms" />}>
+              <Route
+                path={appRoutes.searchTerms}
+                element={
+                  <LazyRoute>
+                    <SearchTermsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
             <Route
               path={appRoutes.accessDenied}
               element={

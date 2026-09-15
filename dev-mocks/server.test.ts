@@ -123,6 +123,12 @@ describe('local Google Ads fixtures', () => {
     const entities = (await entityResponse.json()) as BackendListEnvelope<GoogleAdsEntityDto>
     expect(entities.data).toHaveLength(2)
     expect(entities.pagination?.total).toBe(3)
+    for (const entity of entities.data) {
+      expect(Number.isInteger(entity.metrics.spend_minor)).toBe(true)
+      expect(Number.isInteger(entity.metrics.impressions)).toBe(true)
+      expect(Number.isInteger(entity.metrics.clicks)).toBe(true)
+      expect(entity.metrics.ctr).toBeCloseTo(entity.metrics.clicks / entity.metrics.impressions)
+    }
 
     const devicesResponse = await fetch(
       `${base}/api/v1/analytics/accounts/${accounts.data[0].id}/entities/devices?device=MOBILE`,

@@ -145,15 +145,10 @@ function entityRows(entities: MockEntity[], url: URL, db: MockDatabase): GoogleA
         (candidate) => candidate.id === entity.google_ads_account_id,
       )!
       const total = metricsFor(url, db, [entity.google_ads_account_id])
-      const scaled = Object.fromEntries(
-        Object.entries(total).map(([key, value]) => [
-          key,
-          typeof value === 'number' ? Math.round(value * weight * 10000) / 10000 : value,
-        ]),
-      )
+      const scaled = scaleMetrics(total, weight)
       return {
         ...entity,
-        metrics: metricsWithCurrency(scaled as unknown as MockMetrics, account.currency_code),
+        metrics: metricsWithCurrency(scaled, account.currency_code),
         data_source: 'demo',
       }
     })
@@ -201,20 +196,37 @@ function dimensionRows(groupBy: string, url: URL, db: MockDatabase): GoogleAdsDi
         )
         .map(({ weight, ...definition }) => {
           const total = metricsFor(url, db, [account.id])
-          const scaled = Object.fromEntries(
-            Object.entries(total).map(([key, value]) => [
-              key,
-              typeof value === 'number' ? Math.round(value * weight * 10000) / 10000 : value,
-            ]),
-          )
+          const scaled = scaleMetrics(total, weight)
           return {
             google_ads_account_id: account.id,
             ...definition,
-            metrics: metricsWithCurrency(scaled as unknown as MockMetrics, account.currency_code),
+            metrics: metricsWithCurrency(scaled, account.currency_code),
             data_source: 'demo',
           }
         }),
     )
+}
+
+/** Keep scaled entity fixtures inside the wire contract: minor units and click counts are integers. */
+function scaleMetrics(metrics: MockMetrics, weight: number): MockMetrics {
+  const spendMinor = Math.round(metrics.spend_minor * weight)
+  const impressions = Math.round(metrics.impressions * weight)
+  const clicks = Math.round(metrics.clicks * weight)
+  const conversions = Math.round(metrics.conversions * weight * 10_000) / 10_000
+  const conversionValueMinor = Math.round(metrics.conversion_value_minor * weight)
+
+  return {
+    spend_minor: spendMinor,
+    impressions,
+    clicks,
+    ctr: impressions === 0 ? null : clicks / impressions,
+    average_cpc_minor: clicks === 0 ? null : Math.round(spendMinor / clicks),
+    conversions,
+    conversion_rate: clicks === 0 ? null : conversions / clicks,
+    cpa_minor: conversions === 0 ? null : Math.round(spendMinor / conversions),
+    conversion_value_minor: conversionValueMinor,
+    roas: spendMinor === 0 ? null : conversionValueMinor / spendMinor,
+  }
 }
 
 function overview(url: URL, db: MockDatabase): MockResponse {

@@ -12,8 +12,8 @@ function day(range: { date_from: string; date_to: string }) {
 }
 
 describe('resolvePeriod', () => {
-  it('шесть пресетов, как в прототипе', () => {
-    expect(Object.keys(periodLabels)).toHaveLength(6)
+  it('семь общих пресетов периода', () => {
+    expect(Object.keys(periodLabels)).toHaveLength(7)
   })
 
   it('«Сегодня» — одни сутки', () => {
@@ -43,6 +43,13 @@ describe('resolvePeriod', () => {
 
   it('«Этот месяц» начинается с первого числа', () => {
     expect(day(resolvePeriod('this_month', NOW)!).from).toBe(new Date(2026, 8, 1).toDateString())
+  })
+
+  it('«Прошлый месяц» включает календарный месяц целиком', () => {
+    expect(day(resolvePeriod('previous_month', NOW)!)).toEqual({
+      from: new Date(2026, 7, 1).toDateString(),
+      to: new Date(2026, 7, 31).toDateString(),
+    })
   })
 
   it('«Произвольный» разворачивать нечем — диапазон задаёт пользователь', () => {

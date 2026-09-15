@@ -512,12 +512,12 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
     if (url.pathname !== '/api/v1' && !url.pathname.startsWith('/api/v1/')) return undefined
     const path = url.pathname.replace(/^\/api\/v1/, '')
     const method = req.method ?? 'GET'
-    if (scenario === 'rate-limit' && path !== '/auth/login')
+    if (scenario === 'rate-limit' && !path.startsWith('/auth/'))
       return {
         ...jsonError(429, 'RATE_LIMITED', 'LOCAL MOCK: rate limit exceeded'),
         headers: { 'content-type': 'application/json; charset=utf-8', 'retry-after': '2' },
       }
-    if (scenario === 'server-error' && path !== '/auth/login')
+    if (scenario === 'server-error' && !path.startsWith('/auth/'))
       return jsonError(500, 'INTERNAL_ERROR', 'LOCAL MOCK: server error')
 
     if (path === '/auth/login' && method === 'POST') {

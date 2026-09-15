@@ -126,6 +126,7 @@ export function useGoogleAdsConnectionQuery(
 
 export function useAnalyticsOverviewQuery(
   params: AnalyticsOverviewQuery = {},
+  options: ApiQueryOptions = {},
 ): UseQueryResult<DataEnvelope<AnalyticsOverview>, ApiError> {
   return useQuery({
     queryKey: queryKeys.filtered(serverEntities.analyticsOverview, params),
@@ -136,6 +137,7 @@ export function useAnalyticsOverviewQuery(
       )
       return mapDataEnvelope(envelope, normalizeAnalyticsOverview)
     },
+    ...options,
   })
 }
 

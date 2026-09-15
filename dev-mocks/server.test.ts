@@ -232,6 +232,9 @@ describe('local Google Ads fixtures', () => {
 
     const limitedBase = await start('rate-limit')
     const limitedHeaders = await login(limitedBase)
+    expect((await fetch(`${limitedBase}/api/v1/auth/me`, { headers: limitedHeaders })).ok).toBe(
+      true,
+    )
     const limited = await fetch(`${limitedBase}/api/v1/analytics/overview`, {
       headers: limitedHeaders,
     })
@@ -265,6 +268,7 @@ describe('local Google Ads fixtures', () => {
 
     const failedBase = await start('server-error')
     const headers = await login(failedBase)
+    expect((await fetch(`${failedBase}/api/v1/auth/me`, { headers })).ok).toBe(true)
     const failed = await fetch(`${failedBase}/api/v1/analytics/overview`, { headers })
     expect(failed.status).toBe(500)
     const payload = (await failed.json()) as { error: { code: string } }

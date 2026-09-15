@@ -17,7 +17,18 @@ npm install
 npm run dev
 ```
 
-Локальный dev-сервер использует `.env.development`, production-сборка — `.env.production`. При деплое DEV pipeline подставляет переменные окружения, включая `VITE_API_BASE_URL=/api/v1`. В обоих окружениях сервер маршрутизирует этот относительный путь к соответствующему API; вручную переключать адреса не требуется.
+Локальные режимы запуска разделены и никогда не смешиваются:
+
+```bash
+npm run dev:mock # локальный Vite mock API, только 127.0.0.1
+npm run dev:api  # настоящий DEV API через локальный proxy
+```
+
+Mock-вход: `administrator@local.mock` / `local-mock-only`. Сценарий задаётся серверной переменной `MOCK_SCENARIO` в `.env.mock.local`: `full`, `empty`, `oauth-expired`, `sync-error`, `rate-limit` или `server-error`. После изменения требуется перезапуск.
+
+Локальный mock API существует только в Vite dev server. Любая сборка требует `VITE_API_MODE=real`, после чего `dist` автоматически проверяется на отсутствие mock fixtures, токенов и контрольного sentinel. DEV и production никогда не переходят на моки при пустом ответе или ошибке API.
+
+Production-сборка использует `.env.production`. При деплое DEV pipeline подставляет переменные окружения, включая `VITE_API_BASE_URL=/api/v1` и `VITE_API_MODE=real`.
 
 ```bash
 npm run build

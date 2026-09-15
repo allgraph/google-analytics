@@ -1,13 +1,16 @@
 import type { AuthSession } from '../api/types'
 
+const storageNamespace =
+  import.meta.env.VITE_API_MODE === 'mock' ? 'adcalltrack.mock' : 'adcalltrack'
+
 const TOKEN_KEYS = {
-  accessToken: 'adcalltrack.access_token',
-  accessExpiresAt: 'adcalltrack.access_expires_at',
-  refreshToken: 'adcalltrack.refresh_token',
-  refreshExpiresAt: 'adcalltrack.refresh_expires_at',
-  userId: 'adcalltrack.user_id',
-  tenantId: 'adcalltrack.tenant_id',
-  role: 'adcalltrack.role',
+  accessToken: `${storageNamespace}.access_token`,
+  accessExpiresAt: `${storageNamespace}.access_expires_at`,
+  refreshToken: `${storageNamespace}.refresh_token`,
+  refreshExpiresAt: `${storageNamespace}.refresh_expires_at`,
+  userId: `${storageNamespace}.user_id`,
+  tenantId: `${storageNamespace}.tenant_id`,
+  role: `${storageNamespace}.role`,
 } as const
 
 type TokenListener = () => void

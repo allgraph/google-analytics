@@ -13,9 +13,6 @@ import { AccessDeniedPage } from './pages/AccessDeniedPage'
 import { appRoutes } from './routing/routes'
 import { useAppStore } from './store/useAppStore'
 
-const DashboardPage = lazy(() =>
-  import('./pages/DashboardPage').then(({ DashboardPage }) => ({ default: DashboardPage })),
-)
 const GoogleAdsAccountsPage = lazy(() =>
   import('./pages/GoogleAdsAccountsPage').then(({ GoogleAdsAccountsPage }) => ({
     default: GoogleAdsAccountsPage,
@@ -32,6 +29,12 @@ const PendingRegistryPage = lazy(() =>
     default: PendingRegistryPage,
   })),
 )
+const KeywordsPage = lazy(() =>
+  import('./pages/KeywordsPage').then(({ KeywordsPage }) => ({ default: KeywordsPage })),
+)
+const SearchTermsPage = lazy(() =>
+  import('./pages/SearchTermsPage').then(({ SearchTermsPage }) => ({ default: SearchTermsPage })),
+)
 
 function LazyRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -43,11 +46,10 @@ function AuthorizedIndex() {
 }
 
 const placeholderRoutes: ReadonlyArray<{ section: Section; path: string; title: string }> = [
+  { section: 'dashboard', path: appRoutes.dashboard, title: 'Dashboard' },
   { section: 'campaigns', path: appRoutes.campaigns, title: 'Campaigns' },
   { section: 'adGroups', path: appRoutes.adGroups, title: 'Ad Groups' },
   { section: 'ads', path: appRoutes.ads, title: 'Ads' },
-  { section: 'keywords', path: appRoutes.keywords, title: 'Keywords' },
-  { section: 'searchTerms', path: appRoutes.searchTerms, title: 'Search Terms' },
   { section: 'geography', path: appRoutes.geography, title: 'Geography' },
   { section: 'devices', path: appRoutes.devices, title: 'Devices' },
   { section: 'syncStatus', path: appRoutes.syncStatus, title: 'Sync / System Status' },
@@ -61,16 +63,6 @@ export default function App() {
         <Route element={<CurrentUserRoute />}>
           <Route element={<AppLayout />}>
             <Route index element={<AuthorizedIndex />} />
-            <Route element={<SectionRoute section="dashboard" />}>
-              <Route
-                path={appRoutes.dashboard}
-                element={
-                  <LazyRoute>
-                    <DashboardPage />
-                  </LazyRoute>
-                }
-              />
-            </Route>
             <Route element={<SectionRoute section="adsAccounts" />}>
               <Route
                 path={appRoutes.adsAccounts}
@@ -93,6 +85,26 @@ export default function App() {
                 />
               </Route>
             ))}
+            <Route element={<SectionRoute section="keywords" />}>
+              <Route
+                path={appRoutes.keywords}
+                element={
+                  <LazyRoute>
+                    <KeywordsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="searchTerms" />}>
+              <Route
+                path={appRoutes.searchTerms}
+                element={
+                  <LazyRoute>
+                    <SearchTermsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
             <Route
               path={appRoutes.accessDenied}
               element={

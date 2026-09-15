@@ -26,17 +26,16 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
-  localOAuthCallbackPath,
+  useAdsAccountsQuery,
   useCheckGoogleAdsConnectionMutation,
-  useCompleteMockGoogleAdsOAuthMutation,
-  useCreateGoogleAdsAccountMutation,
-  useDisconnectGoogleAdsAccountMutation,
-  useGoogleAdsAccountsQuery,
+  useCompleteGoogleAdsOAuthCallbackMutation,
+  useCreateAdsAccountMutation,
+  useDisconnectGoogleAdsMutation,
   useRevokeGoogleAdsGrantMutation,
   useStartGoogleAdsOAuthMutation,
   useSyncGoogleAdsAccountMutation,
-} from '../api/googleAdsAccounts'
-import type { GoogleAdsAccount, GoogleAdsAccountRequest } from '../api/types'
+} from '../api'
+import type { AdsAccountWriteRequest, GoogleAdsAccount } from '../api/types'
 import { ApiErrorState } from '../components/ApiErrorState'
 import { StatusTag } from '../components/StatusTag'
 import {
@@ -54,7 +53,7 @@ import styles from './GoogleAdsAccountsPage.module.css'
 interface AccountFormValues {
   name: string
   google_ads_customer_id: string
-  currency_code: string
+  currency_code: AdsAccountWriteRequest['currency_code']
   country_code: string
   timezone: string
 }
@@ -92,6 +91,19 @@ function accountCanAuthorize(account: GoogleAdsAccount): boolean {
   return account.connection_status !== 'connected' || account.status === 'inactive'
 }
 
+function localOAuthCallbackPath(authorizationUrl: string): string | null {
+  if (apiConfig.mode !== 'mock') return null
+
+  const callback = new URL(authorizationUrl, window.location.origin)
+  if (callback.origin !== window.location.origin) return null
+
+  const basePath = new URL(apiConfig.baseUrl, window.location.origin).pathname.replace(/\/$/, '')
+  if (callback.pathname !== basePath && !callback.pathname.startsWith(`${basePath}/`)) return null
+
+  const relativePath = callback.pathname.slice(basePath.length) || '/'
+  return `${relativePath}${callback.search}`
+}
+
 export function GoogleAdsAccountsPage() {
   const { message, modal } = AntdApp.useApp()
   const [form] = Form.useForm<AccountFormValues>()
@@ -101,13 +113,13 @@ export function GoogleAdsAccountsPage() {
   const [oauthAccount, setOauthAccount] = useState<GoogleAdsAccount>()
   const [oauthStep, setOauthStep] = useState(0)
 
-  const accountsQuery = useGoogleAdsAccountsQuery()
-  const createAccount = useCreateGoogleAdsAccountMutation()
+  const accountsQuery = useAdsAccountsQuery({ page: 1, per_page: 100 })
+  const createAccount = useCreateAdsAccountMutation()
   const startOAuth = useStartGoogleAdsOAuthMutation()
-  const completeMockOAuth = useCompleteMockGoogleAdsOAuthMutation()
+  const completeMockOAuth = useCompleteGoogleAdsOAuthCallbackMutation()
   const checkConnection = useCheckGoogleAdsConnectionMutation()
   const syncAccount = useSyncGoogleAdsAccountMutation()
-  const disconnectAccount = useDisconnectGoogleAdsAccountMutation()
+  const disconnectAccount = useDisconnectGoogleAdsMutation()
   const revokeGrant = useRevokeGoogleAdsGrantMutation()
 
   const accounts = useMemo(() => accountsQuery.data?.data ?? [], [accountsQuery.data])
@@ -126,9 +138,11 @@ export function GoogleAdsAccountsPage() {
   }
 
   const handleCreate = async (values: AccountFormValues) => {
-    const request: GoogleAdsAccountRequest = {
-      ...values,
+    const request: AdsAccountWriteRequest = {
+      name: values.name,
       google_ads_customer_id: normalizeGoogleAdsCustomerId(values.google_ads_customer_id),
+      currency_code: values.currency_code,
+      country_code: values.country_code,
     }
     try {
       const result = await createAccount.mutateAsync(request)
@@ -183,7 +197,7 @@ export function GoogleAdsAccountsPage() {
 
   const handleSync = async (account: GoogleAdsAccount) => {
     try {
-      await syncAccount.mutateAsync(account.id)
+      await syncAccount.mutateAsync({ accountId: account.id })
       message.success(`Синхронизация ${account.name} запущена`)
     } catch {
       // Общий MutationCache уже показывает нормализованную ошибку API.
@@ -257,7 +271,7 @@ export function GoogleAdsAccountsPage() {
 
   const actions = (account: GoogleAdsAccount) => {
     const shouldAuthorize = accountCanAuthorize(account)
-    const syncing = syncAccount.isPending && syncAccount.variables === account.id
+    const syncing = syncAccount.isPending && syncAccount.variables?.accountId === account.id
     return (
       <Space size={6}>
         <Button

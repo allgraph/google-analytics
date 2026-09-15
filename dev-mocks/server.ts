@@ -1,5 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Connect } from 'vite'
+import type {
+  AdvertisingMetricsDto,
+  AnalyticsOverviewDto,
+  GoogleAdsDimensionDto,
+  GoogleAdsEntityDto,
+} from '../src/api/types/index.js'
 import {
   createMockDatabase,
   MOCK_SENTINEL,
@@ -67,7 +73,10 @@ function metricsFor(
   )
 }
 
-function metricsWithCurrency(metrics: MockMetrics, currencyCode: string) {
+function metricsWithCurrency(
+  metrics: MockMetrics,
+  currencyCode: string,
+): AdvertisingMetricsDto & { data_source: 'demo' } {
   return { ...metrics, currency_code: currencyCode, data_source: 'demo' }
 }
 
@@ -94,7 +103,7 @@ function listResponse<T>(items: T[], url: URL): MockResponse {
   }
 }
 
-function entityRows(entities: MockEntity[], url: URL, db: MockDatabase) {
+function entityRows(entities: MockEntity[], url: URL, db: MockDatabase): GoogleAdsEntityDto[] {
   const accountIds = selectedAccountIds(url, db)
   return entities
     .filter((entity) => accountIds.includes(entity.google_ads_account_id))
@@ -136,21 +145,16 @@ function entityRows(entities: MockEntity[], url: URL, db: MockDatabase) {
         (candidate) => candidate.id === entity.google_ads_account_id,
       )!
       const total = metricsFor(url, db, [entity.google_ads_account_id])
-      const scaled = Object.fromEntries(
-        Object.entries(total).map(([key, value]) => [
-          key,
-          typeof value === 'number' ? Math.round(value * weight * 10000) / 10000 : value,
-        ]),
-      )
+      const scaled = scaleMetrics(total, weight)
       return {
         ...entity,
-        metrics: metricsWithCurrency(scaled as unknown as MockMetrics, account.currency_code),
+        metrics: metricsWithCurrency(scaled, account.currency_code),
         data_source: 'demo',
       }
     })
 }
 
-function dimensionRows(groupBy: string, url: URL, db: MockDatabase) {
+function dimensionRows(groupBy: string, url: URL, db: MockDatabase): GoogleAdsDimensionDto[] {
   const ids = selectedAccountIds(url, db)
   const definitions: Array<{
     weight: number
@@ -192,20 +196,37 @@ function dimensionRows(groupBy: string, url: URL, db: MockDatabase) {
         )
         .map(({ weight, ...definition }) => {
           const total = metricsFor(url, db, [account.id])
-          const scaled = Object.fromEntries(
-            Object.entries(total).map(([key, value]) => [
-              key,
-              typeof value === 'number' ? Math.round(value * weight * 10000) / 10000 : value,
-            ]),
-          )
+          const scaled = scaleMetrics(total, weight)
           return {
             google_ads_account_id: account.id,
             ...definition,
-            metrics: metricsWithCurrency(scaled as unknown as MockMetrics, account.currency_code),
+            metrics: metricsWithCurrency(scaled, account.currency_code),
             data_source: 'demo',
           }
         }),
     )
+}
+
+/** Keep scaled entity fixtures inside the wire contract: minor units and click counts are integers. */
+function scaleMetrics(metrics: MockMetrics, weight: number): MockMetrics {
+  const spendMinor = Math.round(metrics.spend_minor * weight)
+  const impressions = Math.round(metrics.impressions * weight)
+  const clicks = Math.round(metrics.clicks * weight)
+  const conversions = Math.round(metrics.conversions * weight * 10_000) / 10_000
+  const conversionValueMinor = Math.round(metrics.conversion_value_minor * weight)
+
+  return {
+    spend_minor: spendMinor,
+    impressions,
+    clicks,
+    ctr: impressions === 0 ? null : clicks / impressions,
+    average_cpc_minor: clicks === 0 ? null : Math.round(spendMinor / clicks),
+    conversions,
+    conversion_rate: clicks === 0 ? null : conversions / clicks,
+    cpa_minor: conversions === 0 ? null : Math.round(spendMinor / conversions),
+    conversion_value_minor: conversionValueMinor,
+    roas: spendMinor === 0 ? null : conversionValueMinor / spendMinor,
+  }
 }
 
 function overview(url: URL, db: MockDatabase): MockResponse {
@@ -225,7 +246,8 @@ function overview(url: URL, db: MockDatabase): MockResponse {
       rows.filter((row) => row.metrics.currency_code === currency).map((row) => row.metrics),
     ),
   }))
-  return { body: { data: { from, to, data_source: 'demo', rows, totals } } }
+  const data: AnalyticsOverviewDto = { from, to, data_source: 'demo', rows, totals }
+  return { body: { data } }
 }
 
 function breakdown(url: URL, db: MockDatabase): MockResponse {

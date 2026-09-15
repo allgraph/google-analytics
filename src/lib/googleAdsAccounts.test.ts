@@ -13,6 +13,7 @@ function account(
   status: GoogleAdsAccount['status'] = 'active',
 ): GoogleAdsAccount {
   return {
+    data_source: 'demo',
     id: `${connection}-${sync}`,
     tenant_id: 'tenant',
     name: 'Test account',

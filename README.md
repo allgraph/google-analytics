@@ -57,9 +57,9 @@ src/
 
 ## API-контракт
 
-Черновик OpenAPI первой очереди находится в [`docs/openapi.yaml`](docs/openapi.yaml). Правила пагинации, ролевого усечения данных, карта экранов и запуск мок-сервера описаны в [`docs/api-contract.md`](docs/api-contract.md).
+Фактически реализованный бэкендом API находится в [`docs/openapi-backend.yaml`](docs/openapi-backend.yaml). Маршруты и параметры Google Ads сверяются с ним, а известные response-поля типизированы вручную в `src/api/types`, поскольку production Swagger пока использует generic `additionalProperties`.
 
-Фактически реализованный бэкендом API — [`docs/openapi-backend.yaml`](docs/openapi-backend.yaml); он расходится с контрактом. Реестр расхождений, карта «экран → элемент → ручка → заглушка» и список backend-задач ведутся в [`docs/api-integration-delta.md`](docs/api-integration-delta.md).
+Правила нормализации денег, nullable-метрик, пагинации и фильтров описаны в [`src/api/README.md`](src/api/README.md). Исторический контракт первой очереди сохранён в [`docs/openapi.yaml`](docs/openapi.yaml), а расхождения и принятые адаптации — в [`docs/api-integration-delta.md`](docs/api-integration-delta.md).
 
 ## Git workflow
 

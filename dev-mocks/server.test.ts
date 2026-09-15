@@ -1,5 +1,17 @@
 import { createServer, type Server } from 'node:http'
 import { afterEach, describe, expect, it } from 'vitest'
+import type {
+  AnalyticsBreakdownDto,
+  AnalyticsOverviewDto,
+  BackendDataEnvelope,
+  BackendListEnvelope,
+  GoogleAdsAccount,
+  GoogleAdsConnection,
+  GoogleAdsDimensionDto,
+  GoogleAdsEntityDto,
+  GoogleAdsOAuthStart,
+  GoogleAdsSyncJob,
+} from '../src/api/types/index.js'
 import { createMockDatabase } from './data.js'
 import { createMockMiddleware } from './server.js'
 
@@ -79,31 +91,14 @@ describe('local Google Ads fixtures', () => {
     const accountsResponse = await fetch(`${base}/api/v1/ads-accounts?limit=100&offset=0`, {
       headers,
     })
-    const accounts = (await accountsResponse.json()) as {
-      data: Array<{ id: string }>
-      pagination: { total: number }
-    }
-    expect(accounts.pagination.total).toBe(10)
+    const accounts = (await accountsResponse.json()) as BackendListEnvelope<GoogleAdsAccount>
+    expect(accounts.pagination?.total).toBe(10)
 
     const overviewResponse = await fetch(
       `${base}/api/v1/analytics/overview?from=2026-09-09&to=2026-09-15`,
       { headers },
     )
-    const overview = (await overviewResponse.json()) as {
-      data: {
-        rows: Array<{
-          metrics: {
-            currency_code: string
-            spend_minor: number
-            impressions: number
-            clicks: number
-            ctr: number | null
-          }
-        }>
-        totals: Array<{ currency_code: string; spend_minor: number }>
-        data_source: string
-      }
-    }
+    const overview = (await overviewResponse.json()) as BackendDataEnvelope<AnalyticsOverviewDto>
     expect(overview.data.rows).toHaveLength(10)
     expect(overview.data.totals).toHaveLength(2)
     expect(overview.data.data_source).toBe('demo')
@@ -125,18 +120,21 @@ describe('local Google Ads fixtures', () => {
       `${base}/api/v1/analytics/accounts/${accounts.data[0].id}/entities/campaigns?limit=2&offset=0&sort=clicks&order=desc`,
       { headers },
     )
-    const entities = (await entityResponse.json()) as {
-      data: unknown[]
-      pagination: { total: number }
-    }
+    const entities = (await entityResponse.json()) as BackendListEnvelope<GoogleAdsEntityDto>
     expect(entities.data).toHaveLength(2)
-    expect(entities.pagination.total).toBe(3)
+    expect(entities.pagination?.total).toBe(3)
+    for (const entity of entities.data) {
+      expect(Number.isInteger(entity.metrics.spend_minor)).toBe(true)
+      expect(Number.isInteger(entity.metrics.impressions)).toBe(true)
+      expect(Number.isInteger(entity.metrics.clicks)).toBe(true)
+      expect(entity.metrics.ctr).toBeCloseTo(entity.metrics.clicks / entity.metrics.impressions)
+    }
 
     const devicesResponse = await fetch(
       `${base}/api/v1/analytics/accounts/${accounts.data[0].id}/entities/devices?device=MOBILE`,
       { headers },
     )
-    const devices = (await devicesResponse.json()) as { data: Array<{ device: string }> }
+    const devices = (await devicesResponse.json()) as BackendListEnvelope<GoogleAdsDimensionDto>
     expect(devices.data.every((row) => row.device === 'MOBILE')).toBe(true)
 
     const selectedIds = [accounts.data[0].id, accounts.data[8].id].join(',')
@@ -145,11 +143,11 @@ describe('local Google Ads fixtures', () => {
         `${base}/api/v1/analytics/breakdown?group_by=day&from=2026-09-15&to=2026-09-15&ads_account_ids=${selectedIds}`,
         { headers },
       )
-    ).json()) as { data: { rows: Array<{ currency_code: string }> } }
+    ).json()) as BackendDataEnvelope<AnalyticsBreakdownDto>
     expect(daily.data.rows).toHaveLength(2)
-    expect(new Set(daily.data.rows.map((row) => row.currency_code))).toEqual(
-      new Set(['EUR', 'CHF']),
-    )
+    expect(
+      new Set(daily.data.rows.map((row) => ('currency_code' in row ? row.currency_code : ''))),
+    ).toEqual(new Set(['EUR', 'CHF']))
   })
 
   it('supports the account UI lifecycle and valid export formats', async () => {
@@ -166,19 +164,17 @@ describe('local Google Ads fixtures', () => {
       }),
     })
     expect(createdResponse.status).toBe(201)
-    const created = (await createdResponse.json()) as {
-      data: { id: string; connection_status: string }
-    }
+    const created = (await createdResponse.json()) as BackendDataEnvelope<GoogleAdsAccount>
     expect(created.data.connection_status).toBe('disconnected')
     const disconnected = created.data
     const oauth = (await (
       await fetch(`${base}/api/v1/google-ads/accounts/${disconnected.id}/oauth`, { headers })
-    ).json()) as { data: { authorization_url: string } }
+    ).json()) as BackendDataEnvelope<GoogleAdsOAuthStart>
     const callback = await fetch(`${base}${oauth.data.authorization_url}`, { headers })
     expect(callback.ok).toBe(true)
     const connection = (await (
       await fetch(`${base}/api/v1/google-ads/accounts/${disconnected.id}/connection`, { headers })
-    ).json()) as { data: { connected: boolean } }
+    ).json()) as BackendDataEnvelope<GoogleAdsConnection>
     expect(connection.data.connected).toBe(true)
     const disconnect = await fetch(
       `${base}/api/v1/google-ads/accounts/${disconnected.id}/connection`,
@@ -187,7 +183,7 @@ describe('local Google Ads fixtures', () => {
     expect(disconnect.status).toBe(204)
     const disconnectedAgain = (await (
       await fetch(`${base}/api/v1/google-ads/accounts/${disconnected.id}/connection`, { headers })
-    ).json()) as { data: { connected: boolean } }
+    ).json()) as BackendDataEnvelope<GoogleAdsConnection>
     expect(disconnectedAgain.data.connected).toBe(false)
     expect((await fetch(`${base}${oauth.data.authorization_url}`, { headers })).ok).toBe(true)
 
@@ -198,9 +194,7 @@ describe('local Google Ads fixtures', () => {
     expect(revoke.status).toBe(204)
     const afterRevoke = (await (
       await fetch(`${base}/api/v1/ads-accounts/${disconnected.id}`, { headers })
-    ).json()) as {
-      data: { connection_status: string; last_sync_error: string | null }
-    }
+    ).json()) as BackendDataEnvelope<GoogleAdsAccount>
     expect(afterRevoke.data.connection_status).toBe('disconnected')
     expect(afterRevoke.data.last_sync_error).toBe('LOCAL MOCK: Google OAuth grant revoked')
 
@@ -215,7 +209,7 @@ describe('local Google Ads fixtures', () => {
       await fetch(`${base}/api/v1/google-ads/sync-jobs?ads_account_id=${disconnected.id}`, {
         headers,
       })
-    ).json()) as { data: unknown[] }
+    ).json()) as BackendListEnvelope<GoogleAdsSyncJob>
     expect(jobs.data.length).toBeGreaterThan(0)
 
     const csv = await fetch(`${base}/api/v1/analytics/export?format=csv`, { headers })
@@ -233,7 +227,7 @@ describe('local Google Ads fixtures', () => {
     const emptyHeaders = await login(emptyBase)
     const empty = (await (
       await fetch(`${emptyBase}/api/v1/ads-accounts`, { headers: emptyHeaders })
-    ).json()) as { data: unknown[] }
+    ).json()) as BackendListEnvelope<GoogleAdsAccount>
     expect(empty.data).toEqual([])
 
     const limitedBase = await start('rate-limit')
@@ -253,13 +247,7 @@ describe('local Google Ads fixtures', () => {
     const headers = await login(base)
     const payload = (await (
       await fetch(`${base}/api/v1/ads-accounts?limit=100`, { headers })
-    ).json()) as {
-      data: Array<{
-        connection_status: string
-        last_sync_status: string | null
-        last_sync_error: string | null
-      }>
-    }
+    ).json()) as BackendListEnvelope<GoogleAdsAccount>
     expect(payload.data.every((account) => account.last_sync_error === error)).toBe(true)
     if (connection)
       expect(payload.data.every((account) => account.connection_status === connection)).toBe(true)

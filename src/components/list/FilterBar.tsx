@@ -25,7 +25,7 @@ interface FilterBarProps {
   /** Фильтры за кнопкой «Ещё фильтры (N)». */
   more?: FilterDefinition[]
   /** Поиск; если задан `pending`, строка рисуется неактивной. */
-  search?: { placeholder: string; pending?: PendingId }
+  search?: { placeholder: string; filterKey?: string; pending?: PendingId }
   /** Кнопки справа: «Настроить колонки», «Экспорт». */
   actions?: ReactNode
 }
@@ -73,8 +73,10 @@ export function FilterBar({ filters, base, more = [], search, actions }: FilterB
               prefix={<Search size={14} />}
               placeholder={search.placeholder}
               className={styles.search}
-              value={filters.filters.q ?? ''}
-              onChange={(event) => filters.setFilter('q', event.target.value || null)}
+              value={filters.filters[search.filterKey ?? 'q'] ?? ''}
+              onChange={(event) =>
+                filters.setFilter(search.filterKey ?? 'q', event.target.value || null)
+              }
             />
           )
         ) : null}

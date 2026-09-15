@@ -1,38 +1,20 @@
+import type {
+  AdvertisingMetricValuesDto,
+  GoogleAdsAccount,
+  GoogleAdsSyncJob,
+} from '../src/api/types/index.js'
+
 export const MOCK_SENTINEL = 'ADCALLTRACK_LOCAL_MOCK_ONLY_7F3C9A'
 
 export type MockScenario =
   'full' | 'empty' | 'oauth-expired' | 'sync-error' | 'rate-limit' | 'server-error'
 
-export interface MockMetrics {
-  spend_minor: number
-  impressions: number
-  clicks: number
-  ctr: number | null
-  average_cpc_minor: number | null
-  conversions: number
-  conversion_rate: number | null
-  cpa_minor: number | null
-  conversion_value_minor: number
-  roas: number | null
-}
+export type MockMetrics = AdvertisingMetricValuesDto
 
-export interface MockAccount {
+export interface MockAccount extends GoogleAdsAccount {
   data_source: 'demo'
-  id: string
-  tenant_id: string
-  name: string
-  google_ads_customer_id: string
   currency_code: 'EUR' | 'CHF'
   country_code: 'DE' | 'AT' | 'CH'
-  timezone: string
-  status: 'active' | 'inactive'
-  connection_status: 'connected' | 'disconnected' | 'error'
-  connected_at: string | null
-  last_sync_at: string | null
-  last_sync_status: 'success' | 'running' | 'failed' | 'stale' | null
-  last_sync_error: string | null
-  created_at: string
-  updated_at: string
 }
 
 export interface MockEntity {
@@ -55,17 +37,7 @@ export interface MockDailyMetric extends MockMetrics {
   google_ads_account_id: string
 }
 
-export interface MockSyncJob {
-  id: string
-  google_ads_account_id: string
-  started_at: string
-  finished_at: string | null
-  status: 'running' | 'success' | 'failed'
-  received: number
-  inserted: number
-  updated: number
-  error: string | null
-}
+export type MockSyncJob = GoogleAdsSyncJob
 
 export interface MockDatabase {
   sentinel: typeof MOCK_SENTINEL

@@ -2,6 +2,12 @@ import type {
   BackendDataEnvelope,
   BackendListEnvelope,
   BackendPagination,
+  AdvertisingMetrics,
+  AdvertisingMetricsDto,
+  AnalyticsBreakdown,
+  AnalyticsBreakdownDto,
+  AnalyticsOverview,
+  AnalyticsOverviewDto,
   DataEnvelope,
   ErrorBody,
   ErrorEnvelope,
@@ -10,6 +16,12 @@ import type {
   PageParams,
   PaginationMeta,
   ResponseMeta,
+  GoogleAdsDimension,
+  GoogleAdsDimensionDto,
+  GoogleAdsEntity,
+  GoogleAdsEntityDto,
+  GoogleAdsBreakdownRow,
+  GoogleAdsBreakdownRowDto,
 } from './types'
 
 type QueryPrimitive = string | number | boolean | Date | null | undefined
@@ -22,6 +34,19 @@ export interface FormQueryParams extends Partial<PageParams> {
 
 function appendQueryValue(query: URLSearchParams, key: string, value: QueryValue): void {
   if (Array.isArray(value)) {
+    if (key === 'ads_account_ids' || key === 'columns') {
+      const items = value.filter(
+        (item): item is string | number | boolean | Date =>
+          item !== null && item !== undefined && item !== '',
+      )
+      if (items.length > 0) {
+        query.append(
+          key,
+          items.map((item) => (item instanceof Date ? item.toISOString() : String(item))).join(','),
+        )
+      }
+      return
+    }
     value.forEach((item) => appendQueryValue(query, key, item))
     return
   }
@@ -30,9 +55,9 @@ function appendQueryValue(query: URLSearchParams, key: string, value: QueryValue
   query.append(key, value instanceof Date ? value.toISOString() : String(value))
 }
 
-export function toApiQuery(params: FormQueryParams = {}): URLSearchParams {
+export function toApiQuery(params: object = {}): URLSearchParams {
   const query = new URLSearchParams()
-  const { page, per_page: perPage, filters, ...rest } = params
+  const { page, per_page: perPage, filters, ...rest } = params as FormQueryParams
 
   if (page !== undefined || perPage !== undefined) {
     const normalizedPage = Math.max(1, page ?? 1)
@@ -48,7 +73,7 @@ export function toApiQuery(params: FormQueryParams = {}): URLSearchParams {
   return query
 }
 
-export function withApiQuery(path: string, params?: FormQueryParams): string {
+export function withApiQuery(path: string, params?: object): string {
   const [pathname, existingQuery = ''] = path.split('?', 2)
   const query = new URLSearchParams(existingQuery)
   toApiQuery(params).forEach((value, key) => query.append(key, value))
@@ -88,7 +113,7 @@ function normalizeMeta(meta: unknown): ResponseMeta {
   }
 }
 
-function normalizePagination(
+export function normalizePagination(
   pagination: BackendPagination | undefined,
   meta: unknown,
   itemCount: number,
@@ -102,6 +127,70 @@ function normalizePagination(
   const to = itemCount === 0 ? 0 : offset + itemCount
 
   return { ...normalizeMeta(meta), page, per_page: perPage, total, from, to }
+}
+
+export function mapDataEnvelope<T, U>(
+  envelope: DataEnvelope<T>,
+  map: (data: T) => U,
+): DataEnvelope<U> {
+  return { data: map(envelope.data), meta: envelope.meta }
+}
+
+export function mapListEnvelope<T, U>(
+  envelope: ListEnvelope<T>,
+  map: (data: T) => U,
+): ListEnvelope<U> {
+  return { data: envelope.data.map(map), meta: envelope.meta }
+}
+
+export function normalizeAdvertisingMetrics(metrics: AdvertisingMetricsDto): AdvertisingMetrics {
+  const currency = metrics.currency_code
+  return {
+    spend: fromMinorUnits(metrics.spend_minor, currency),
+    impressions: metrics.impressions,
+    clicks: metrics.clicks,
+    ctr: metrics.ctr,
+    average_cpc:
+      metrics.average_cpc_minor === null
+        ? null
+        : fromMinorUnits(metrics.average_cpc_minor, currency),
+    conversions: metrics.conversions,
+    conversion_rate: metrics.conversion_rate,
+    cpa: metrics.cpa_minor === null ? null : fromMinorUnits(metrics.cpa_minor, currency),
+    conversion_value: fromMinorUnits(metrics.conversion_value_minor, currency),
+    roas: metrics.roas,
+  }
+}
+
+export function normalizeGoogleAdsEntity(entity: GoogleAdsEntityDto): GoogleAdsEntity {
+  return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
+}
+
+export function normalizeGoogleAdsDimension(dimension: GoogleAdsDimensionDto): GoogleAdsDimension {
+  return { ...dimension, metrics: normalizeAdvertisingMetrics(dimension.metrics) }
+}
+
+export function normalizeAnalyticsOverview(overview: AnalyticsOverviewDto): AnalyticsOverview {
+  return {
+    ...overview,
+    rows: overview.rows.map((row) => ({
+      ...row,
+      metrics: normalizeAdvertisingMetrics(row.metrics),
+    })),
+    totals: overview.totals.map(normalizeAdvertisingMetrics),
+  }
+}
+
+function normalizeBreakdownRow(row: GoogleAdsBreakdownRowDto): GoogleAdsBreakdownRow {
+  return { ...row, metrics: normalizeAdvertisingMetrics(row.metrics) } as GoogleAdsBreakdownRow
+}
+
+export function normalizeAnalyticsBreakdown(breakdown: AnalyticsBreakdownDto): AnalyticsBreakdown {
+  return {
+    ...breakdown,
+    rows: breakdown.rows.map(normalizeBreakdownRow),
+    pagination: normalizePagination(breakdown.pagination, undefined, breakdown.rows.length),
+  }
 }
 
 function asPositiveInteger(value: unknown): number | undefined {

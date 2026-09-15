@@ -1,5 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Connect } from 'vite'
+import type {
+  AdvertisingMetricsDto,
+  AnalyticsOverviewDto,
+  GoogleAdsDimensionDto,
+  GoogleAdsEntityDto,
+} from '../src/api/types/index.js'
 import {
   createMockDatabase,
   MOCK_SENTINEL,
@@ -67,7 +73,10 @@ function metricsFor(
   )
 }
 
-function metricsWithCurrency(metrics: MockMetrics, currencyCode: string) {
+function metricsWithCurrency(
+  metrics: MockMetrics,
+  currencyCode: string,
+): AdvertisingMetricsDto & { data_source: 'demo' } {
   return { ...metrics, currency_code: currencyCode, data_source: 'demo' }
 }
 
@@ -94,7 +103,7 @@ function listResponse<T>(items: T[], url: URL): MockResponse {
   }
 }
 
-function entityRows(entities: MockEntity[], url: URL, db: MockDatabase) {
+function entityRows(entities: MockEntity[], url: URL, db: MockDatabase): GoogleAdsEntityDto[] {
   const accountIds = selectedAccountIds(url, db)
   return entities
     .filter((entity) => accountIds.includes(entity.google_ads_account_id))
@@ -150,7 +159,7 @@ function entityRows(entities: MockEntity[], url: URL, db: MockDatabase) {
     })
 }
 
-function dimensionRows(groupBy: string, url: URL, db: MockDatabase) {
+function dimensionRows(groupBy: string, url: URL, db: MockDatabase): GoogleAdsDimensionDto[] {
   const ids = selectedAccountIds(url, db)
   const definitions: Array<{
     weight: number
@@ -225,7 +234,8 @@ function overview(url: URL, db: MockDatabase): MockResponse {
       rows.filter((row) => row.metrics.currency_code === currency).map((row) => row.metrics),
     ),
   }))
-  return { body: { data: { from, to, data_source: 'demo', rows, totals } } }
+  const data: AnalyticsOverviewDto = { from, to, data_source: 'demo', rows, totals }
+  return { body: { data } }
 }
 
 function breakdown(url: URL, db: MockDatabase): MockResponse {

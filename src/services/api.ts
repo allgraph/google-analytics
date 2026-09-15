@@ -33,11 +33,6 @@ export class ApiError extends Error {
   }
 }
 
-interface RawResponse {
-  response: Response
-  payload: unknown
-}
-
 interface SendOptions {
   includeAccessToken?: boolean
 }
@@ -95,7 +90,7 @@ async function send(
   path: string,
   init: RequestInit = {},
   { includeAccessToken = true }: SendOptions = {},
-): Promise<RawResponse> {
+): Promise<Response> {
   const controller = new AbortController()
   let didTimeout = false
   const timeout = window.setTimeout(() => {
@@ -107,7 +102,7 @@ async function send(
   else init.signal?.addEventListener('abort', abortFromCaller, { once: true })
 
   const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json')
   if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
@@ -118,12 +113,11 @@ async function send(
   }
 
   try {
-    const response = await fetch(joinApiPath(apiConfig.baseUrl, path), {
+    return await fetch(joinApiPath(apiConfig.baseUrl, path), {
       ...init,
       headers,
       signal: controller.signal,
     })
-    return { response, payload: await readJson(response) }
   } catch (error) {
     if (init.signal?.aborted && !didTimeout) throw error
     throw networkError(didTimeout)
@@ -154,7 +148,7 @@ async function requestNewTokens(): Promise<void> {
   const refreshToken = tokenStorage.getRefreshToken()
   if (!refreshToken || refreshTokenHasExpired()) throw new Error('Refresh token has expired')
 
-  const { response, payload } = await send(
+  const response = await send(
     AUTH_REFRESH_PATH,
     {
       method: 'POST',
@@ -162,6 +156,7 @@ async function requestNewTokens(): Promise<void> {
     },
     { includeAccessToken: false },
   )
+  const payload = await readJson(response)
 
   if (!response.ok) throw apiErrorFromResponse(response, payload)
   const envelope = parseSuccessEnvelope<AuthSession>(payload) as DataEnvelope<AuthSession>
@@ -200,7 +195,8 @@ async function request<T>(
     await ensureFreshAccessToken()
   }
 
-  const { response, payload } = await send(path, init, { includeAccessToken })
+  const response = await send(path, init, { includeAccessToken })
+  const payload = await readJson(response)
 
   if (response.status === 401 && canRefresh && path !== AUTH_REFRESH_PATH) {
     await refreshAccessToken()
@@ -229,4 +225,48 @@ export async function publicApiRequest<T>(path: string, init: RequestInit = {}):
     canRefresh: false,
     includeAccessToken: path !== AUTH_LOGIN_PATH,
   })
+}
+
+export interface ApiFile {
+  blob: Blob
+  fileName: string | null
+  contentType: string
+}
+
+export function contentDispositionFileName(value: string | null): string | null {
+  if (!value) return null
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(value)?.[1]
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8)
+    } catch {
+      return utf8
+    }
+  }
+  return (
+    /filename="([^"]+)"/i.exec(value)?.[1] ?? /filename=([^;]+)/i.exec(value)?.[1]?.trim() ?? null
+  )
+}
+
+async function requestFile(path: string, init: RequestInit, canRefresh = true): Promise<ApiFile> {
+  if (canRefresh) await ensureFreshAccessToken()
+  const response = await send(path, init)
+
+  if (response.status === 401 && canRefresh) {
+    await refreshAccessToken()
+    return requestFile(path, init, false)
+  }
+  if (!response.ok) throw apiErrorFromResponse(response, await readJson(response))
+
+  return {
+    blob: await response.blob(),
+    fileName: contentDispositionFileName(response.headers.get('content-disposition')),
+    contentType: response.headers.get('content-type') ?? 'application/octet-stream',
+  }
+}
+
+export async function apiFileRequest(path: string, init: RequestInit = {}): Promise<ApiFile> {
+  const headers = new Headers(init.headers)
+  if (!headers.has('Accept')) headers.set('Accept', '*/*')
+  return requestFile(path, { ...init, headers })
 }

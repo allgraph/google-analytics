@@ -1,17 +1,15 @@
 import type {
-  AccessLevel,
-  CallStatus,
-  ConfidenceCategory,
+  BreakdownGroup,
+  CurrencyCode,
+  DataSource,
   EntityId,
+  IsoDate,
   IsoDateTime,
-  LeadStatus,
-  MetricSet,
   Money,
-  ReferenceItem,
-  ReportFilter,
+  NullableMetric,
   RoleCode,
-  UnattributedReason,
-} from './common'
+} from './common.js'
+import type { PaginationMeta } from './envelopes.js'
 
 export interface AuthSession {
   user_id: EntityId
@@ -35,337 +33,285 @@ export interface CurrentUser {
   expires_at: IsoDateTime
 }
 
-export interface FunnelStep {
-  code: string
-  label: string
-  value: number
-  conversion?: number | null
-}
+export type GoogleAdsAccountStatus = 'active' | 'inactive'
+export type GoogleAdsConnectionStatus = 'connected' | 'disconnected' | 'error'
+export type GoogleAdsSyncStatus = 'success' | 'running' | 'failed' | 'stale'
+export type GoogleAdsEntityStatus = 'enabled' | 'paused' | 'removed'
+export type GoogleAdsMatchType = 'broad' | 'phrase' | 'exact'
 
-export interface DashboardOverview {
-  metrics: MetricSet
-  funnel: FunnelStep[]
-}
-
-export interface SiteMetric {
-  site_id: EntityId
-  site_name: string
-  account_id?: EntityId
-  metrics: MetricSet
-}
-
-export interface Call {
+export interface GoogleAdsAccount {
+  data_source: DataSource
   id: EntityId
-  call_id: string
-  started_at: IsoDateTime
-  caller_phone: string
-  site: ReferenceItem
-  wait_duration_seconds: number
-  talk_duration_seconds: number
-  status: CallStatus
-  operator?: ReferenceItem | null
-  confidence: ConfidenceCategory
-  source?: string | null
-  campaign?: string | null
-  ad_group?: string | null
-  keyword?: string | null
-  is_repeat: boolean
-  lead_id?: EntityId | null
-  has_recording?: boolean
-}
-
-export interface CallDetails extends Call {
-  answered_at?: IsoDateTime | null
-  ended_at?: IsoDateTime | null
-  first_touch_source?: string | null
-  last_touch_source?: string | null
-  recording_transcript?: string | null
-}
-
-export interface Recording {
-  url: string
-  expires_at: IsoDateTime
-}
-
-export interface BulkActionResult {
-  processed: number
-  failed: number
-}
-
-export interface PhoneClick {
-  phone_click_id: EntityId
-  occurred_at: IsoDateTime
-  site_id: EntityId
-  visitor_id: string
-  session_id: string
-  destination_phone: string
-  source?: string | null
-  campaign?: string | null
-  ad_group?: string | null
-  keyword?: string | null
-  device?: string | null
-  landing_page: string
-  current_page: string
-  linked_call_id: EntityId | null
-}
-
-export interface ScoreExplanation {
-  code: string
-  text: string
-  points: number
-  order: number
-}
-
-export interface MatchingItem {
-  call: Call
-  score: number
-  category: ConfidenceCategory
-  candidate_count: number
-  has_tie: boolean
-  unattributed_reason?: UnattributedReason | null
-}
-
-export interface MatchingCandidate {
-  phone_click: PhoneClick
-  score: number
-  category: ConfidenceCategory
-  time_delta_seconds: number
-  explanations: ScoreExplanation[]
-}
-
-export interface MatchingCandidates {
-  call_id: EntityId
-  has_tie: boolean
-  candidates: MatchingCandidate[]
-}
-
-export interface MatchingDecision {
-  call_id: EntityId
-  decision: 'match' | 'unattributed'
-  phone_click_id?: EntityId | null
-  decided_by: EntityId
-  decided_at: IsoDateTime
-}
-
-export interface Recalculation {
-  id: EntityId
-  status: 'queued' | 'running' | 'completed' | 'failed'
-  progress_percent: number
-  processed?: number
-  skipped_manual?: number
-  category_changes?: Record<string, number>
-}
-
-export interface Lead {
-  id: EntityId
-  number: string
-  occurred_at: IsoDateTime
-  client_name: string
-  phone: string
-  site: ReferenceItem
-  source: string | null
-  campaign?: string | null
-  ad_group?: string | null
-  keyword?: string | null
-  service: ReferenceItem
-  city: ReferenceItem
-  district: ReferenceItem
-  address: string
-  master?: ReferenceItem | null
-  operator?: ReferenceItem | null
-  preliminary_amount: Money | null
-  final_amount: Money | null
-  status: LeadStatus
-  cancellation_reason?: string | null
-  call_id?: EntityId | null
-}
-
-export interface StatusHistoryItem {
-  status: LeadStatus
-  author: ReferenceItem
-  occurred_at: IsoDateTime
-  comment?: string | null
-}
-
-export interface LeadDetails extends Lead {
-  status_history: StatusHistoryItem[]
-}
-
-export interface LeadStatusCount {
-  status: LeadStatus
-  count: number
-}
-
-export interface Shift {
-  id: EntityId
-  status: 'open' | 'closed'
-  started_at: IsoDateTime
-  closed_at?: IsoDateTime | null
-  unresolved_mandatory_leads: number
-}
-
-export interface AnalyticsRow {
-  id: EntityId
-  label: string
-  level: 'account' | 'campaign' | 'ad_group' | 'keyword'
-  parent_id?: EntityId | null
-  customer_id?: string | null
-  match_type?: string | null
-  has_children: boolean
-  is_total: boolean
-  metrics: MetricSet
-}
-
-export interface MissedCall extends Call {
-  estimated_loss?: Money | null
-}
-
-export interface ExportJob {
-  id: EntityId
-  status: 'queued' | 'running' | 'completed' | 'failed'
-  download_url?: string | null
-  expires_at?: IsoDateTime | null
-  error_message?: string | null
-}
-
-export interface OrderFinancials {
-  customer_amount?: Money
-  master_payment?: Money
-  materials?: Money
-  transport?: Money
-  payment_fee?: Money
-  discount?: Money
-  refund?: Money
-  other_direct_expenses?: Money
-  ad_spend?: Money
-  profit_before_ads?: Money
-  net_profit?: Money
-}
-
-export interface OrderFinance {
-  order_id: EntityId
-  lead_id: EntityId
-  site?: ReferenceItem
-  completed_at: IsoDateTime
-  financials: OrderFinancials
-  is_repeat_revenue: boolean
-  is_unattributed: boolean
-}
-
-export interface Notification {
-  id: EntityId
-  rule_code: string
-  title: string
-  message: string
-  occurred_at: IsoDateTime
-  state: 'active' | 'processed'
-  object_type: string
-  object_id: EntityId
-  frontend_path: string
-  metric_value?: number | string | null
-  processed_by?: EntityId | null
-  processed_at?: IsoDateTime | null
-}
-
-export interface NotificationRule {
-  id: EntityId
-  code: string
+  tenant_id: EntityId
   name: string
-  metric: string
-  operator: 'gt' | 'gte' | 'lt' | 'lte' | 'eq'
-  threshold: number
-  period_seconds: number
-  channel: 'telegram'
-  recipient_roles: RoleCode[]
-  enabled: boolean
-}
-
-export interface Site {
-  id: EntityId
-  account_id: EntityId
-  domain: string
-  permanent_phone: string
-  city: string
-  service_directions: string[]
-  tracking_script_status: 'installed' | 'unavailable' | 'not_installed'
-}
-
-export interface Account {
-  id: EntityId
-  name: string
-  customer_id: string
-  country: string
-  currency: string
-  status: 'connected' | 'disconnected' | 'error'
-  sites: Site[]
-}
-
-export interface PhoneNumber {
-  id: EntityId
-  site_id: EntityId
-  phone: string
-  active: boolean
-}
-
-export interface MatchingConfig {
-  version: string
+  google_ads_customer_id: string
+  currency_code: CurrencyCode
+  country_code: string
+  timezone: string
+  status: GoogleAdsAccountStatus
+  connection_status: GoogleAdsConnectionStatus
+  connected_at: IsoDateTime | null
+  last_sync_at: IsoDateTime | null
+  last_sync_status: GoogleAdsSyncStatus | null
+  last_sync_error: string | null
+  created_at: IsoDateTime
   updated_at: IsoDateTime
-  time_windows_seconds: [number, number, number, number]
-  thresholds: { high: number; probable: number; review: number }
-  rules: Array<{ code: string; label: string; points: number }>
 }
 
-export interface IntegrationStatus {
-  status: 'connected' | 'disconnected' | 'degraded' | 'error'
-  last_success_at: IsoDateTime | null
-  last_error?: string | null
+/** Numeric values exactly as returned by the backend before money normalization. */
+export interface AdvertisingMetricValuesDto {
+  spend_minor: number
+  impressions: number
+  clicks: number
+  ctr: NullableMetric
+  average_cpc_minor: number | null
+  conversions: number
+  conversion_rate: NullableMetric
+  cpa_minor: number | null
+  conversion_value_minor: number
+  roas: NullableMetric
 }
 
-export interface User {
+export interface AdvertisingMetricsDto extends AdvertisingMetricValuesDto {
+  currency_code: CurrencyCode
+}
+
+export interface AdvertisingMetrics {
+  spend: Money
+  impressions: number
+  clicks: number
+  ctr: NullableMetric
+  average_cpc: Money | null
+  conversions: number
+  conversion_rate: NullableMetric
+  cpa: Money | null
+  conversion_value: Money
+  roas: NullableMetric
+}
+
+interface GoogleAdsEntityIdentity {
+  id: string
+  google_ads_account_id: EntityId
+  name: string | null
+  status: GoogleAdsEntityStatus
+}
+
+export interface GoogleAdsEntityDto extends GoogleAdsEntityIdentity {
+  campaign_id?: string
+  ad_group_id?: string
+  ad_id?: string
+  keyword_id?: string
+  type?: string | null
+  match_type?: GoogleAdsMatchType | null
+  privacy_restricted?: boolean
+  metrics: AdvertisingMetricsDto
+  data_source: DataSource
+}
+
+export interface GoogleAdsEntity extends GoogleAdsEntityIdentity {
+  campaign_id?: string
+  ad_group_id?: string
+  ad_id?: string
+  keyword_id?: string
+  type?: string | null
+  match_type?: GoogleAdsMatchType | null
+  privacy_restricted?: boolean
+  metrics: AdvertisingMetrics
+  data_source: DataSource
+}
+
+export interface GoogleAdsCampaignDto extends GoogleAdsEntityDto {
+  campaign_id: string
+  type: string | null
+}
+
+export interface GoogleAdsCampaign extends GoogleAdsEntity {
+  campaign_id: string
+  type: string | null
+}
+
+export interface GoogleAdsAdGroupDto extends GoogleAdsEntityDto {
+  campaign_id: string
+  ad_group_id: string
+}
+
+export interface GoogleAdsAdGroup extends GoogleAdsEntity {
+  campaign_id: string
+  ad_group_id: string
+}
+
+export interface GoogleAdsAdDto extends GoogleAdsEntityDto {
+  campaign_id: string
+  ad_group_id: string
+  ad_id: string
+  type: string | null
+}
+
+export interface GoogleAdsAd extends GoogleAdsEntity {
+  campaign_id: string
+  ad_group_id: string
+  ad_id: string
+  type: string | null
+}
+
+export interface GoogleAdsKeywordDto extends GoogleAdsEntityDto {
+  campaign_id: string
+  ad_group_id: string
+  keyword_id: string
+  match_type: GoogleAdsMatchType | null
+}
+
+export interface GoogleAdsKeyword extends GoogleAdsEntity {
+  campaign_id: string
+  ad_group_id: string
+  keyword_id: string
+  match_type: GoogleAdsMatchType | null
+}
+
+export interface GoogleAdsSearchTermDto extends GoogleAdsEntityDto {
+  campaign_id: string
+  ad_group_id: string
+  keyword_id: string
+  match_type: GoogleAdsMatchType | null
+  privacy_restricted: boolean
+}
+
+export interface GoogleAdsSearchTerm extends GoogleAdsEntity {
+  campaign_id: string
+  ad_group_id: string
+  keyword_id: string
+  match_type: GoogleAdsMatchType | null
+  privacy_restricted: boolean
+}
+
+export interface GoogleAdsDimensionDto {
+  google_ads_account_id: EntityId
+  device?: string
+  country?: string
+  region?: string | null
+  city?: string | null
+  geo_id?: string | null
+  metrics: AdvertisingMetricsDto
+  data_source: DataSource
+}
+
+export interface GoogleAdsDimension extends Omit<GoogleAdsDimensionDto, 'metrics'> {
+  metrics: AdvertisingMetrics
+}
+
+export interface GoogleAdsGeoRowDto extends GoogleAdsDimensionDto {
+  country: string
+  region: string | null
+  city: string | null
+  geo_id: string | null
+}
+
+export interface GoogleAdsGeoRow extends GoogleAdsDimension {
+  country: string
+  region: string | null
+  city: string | null
+  geo_id: string | null
+}
+
+export interface GoogleAdsDeviceRowDto extends GoogleAdsDimensionDto {
+  device: string
+}
+
+export interface GoogleAdsDeviceRow extends GoogleAdsDimension {
+  device: string
+}
+
+export interface AnalyticsOverviewRowDto {
+  google_ads_account_id: EntityId
+  account_name: string
+  metrics: AdvertisingMetricsDto
+}
+
+export interface AnalyticsOverviewRow extends Omit<AnalyticsOverviewRowDto, 'metrics'> {
+  metrics: AdvertisingMetrics
+}
+
+export interface AnalyticsMetricTotalDto extends AdvertisingMetricValuesDto {
+  currency_code: CurrencyCode
+}
+
+export type AnalyticsMetricTotal = AdvertisingMetrics
+
+export interface AnalyticsOverviewDto {
+  from: IsoDate
+  to: IsoDate
+  data_source: DataSource
+  rows: AnalyticsOverviewRowDto[]
+  totals: AnalyticsMetricTotalDto[]
+}
+
+export interface AnalyticsOverview extends Omit<AnalyticsOverviewDto, 'rows' | 'totals'> {
+  rows: AnalyticsOverviewRow[]
+  totals: AnalyticsMetricTotal[]
+}
+
+export interface GoogleAdsDayRowDto {
+  date: IsoDate
+  currency_code: CurrencyCode
+  metrics: AdvertisingMetricsDto
+}
+
+export interface GoogleAdsDayRow {
+  date: IsoDate
+  currency_code: CurrencyCode
+  metrics: AdvertisingMetrics
+}
+
+export type GoogleAdsBreakdownRowDto =
+  AnalyticsOverviewRowDto | GoogleAdsEntityDto | GoogleAdsDimensionDto | GoogleAdsDayRowDto
+
+export type GoogleAdsBreakdownRow =
+  AnalyticsOverviewRow | GoogleAdsEntity | GoogleAdsDimension | GoogleAdsDayRow
+
+export interface AnalyticsBreakdownDto {
+  from: IsoDate
+  to: IsoDate
+  group_by: BreakdownGroup
+  data_source: DataSource
+  rows: GoogleAdsBreakdownRowDto[]
+  pagination: { limit: number; offset: number; total?: number }
+}
+
+export interface AnalyticsBreakdown extends Omit<AnalyticsBreakdownDto, 'rows' | 'pagination'> {
+  rows: GoogleAdsBreakdownRow[]
+  pagination: PaginationMeta
+}
+
+export interface GoogleAdsConnection {
+  ads_account_id: EntityId
+  connected: boolean
+  status: GoogleAdsConnectionStatus
+}
+
+export interface GoogleAdsOAuthStart {
+  authorization_url: string
+}
+
+export interface GoogleAdsOAuthCallback {
+  connected: true
+  ads_account_id: EntityId
+}
+
+export interface GoogleAdsSyncJob {
   id: EntityId
-  name: string
-  email: string
-  role: RoleCode
-  active: boolean
-  account_ids: EntityId[]
-  site_ids: EntityId[]
+  google_ads_account_id: EntityId
+  started_at: IsoDateTime
+  finished_at: IsoDateTime | null
+  status: 'running' | 'success' | 'failed'
+  received: number
+  inserted: number
+  updated: number
+  error: string | null
 }
 
-export interface RoleDefinition {
-  code: RoleCode
-  label: string
-  sections: Record<string, AccessLevel>
-  hidden_field_groups: Array<'money' | 'advertising' | 'staff' | 'recordings' | 'transcripts'>
-}
-
-export interface AuditLogEntry {
-  id: EntityId
+export interface GoogleAdsSyncError {
+  sync_job_id: EntityId
+  google_ads_account_id: EntityId
+  error: string
   occurred_at: IsoDateTime
-  user: ReferenceItem
-  role: RoleCode
-  action: string
-  object_type: string
-  object_id: EntityId
-  ip: string
-  request_id?: string
-}
-
-export interface Health {
-  status: 'ok' | 'degraded' | 'unavailable'
-  database: 'available' | 'unavailable'
-  task_queue: 'available' | 'unavailable'
-  last_migration_at: IsoDateTime
-  version: string
-}
-
-export interface ApiVersion {
-  version: string
-  environment: 'development' | 'staging' | 'production'
-  built_at: IsoDateTime
-}
-
-export interface ExportRequest {
-  format: 'csv' | 'xlsx'
-  filters: ReportFilter
-  columns?: string[]
 }

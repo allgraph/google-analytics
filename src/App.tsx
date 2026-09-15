@@ -13,9 +13,6 @@ import { AccessDeniedPage } from './pages/AccessDeniedPage'
 import { appRoutes } from './routing/routes'
 import { useAppStore } from './store/useAppStore'
 
-const DashboardPage = lazy(() =>
-  import('./pages/DashboardPage').then(({ DashboardPage }) => ({ default: DashboardPage })),
-)
 const PlaceholderPage = lazy(() =>
   import('./pages/PlaceholderPage').then(({ PlaceholderPage }) => ({ default: PlaceholderPage })),
 )
@@ -38,6 +35,7 @@ function AuthorizedIndex() {
 }
 
 const placeholderRoutes: ReadonlyArray<{ section: Section; path: string; title: string }> = [
+  { section: 'dashboard', path: appRoutes.dashboard, title: 'Dashboard' },
   { section: 'adsAccounts', path: appRoutes.adsAccounts, title: 'Google Ads Accounts' },
   { section: 'campaigns', path: appRoutes.campaigns, title: 'Campaigns' },
   { section: 'adGroups', path: appRoutes.adGroups, title: 'Ad Groups' },
@@ -57,16 +55,6 @@ export default function App() {
         <Route element={<CurrentUserRoute />}>
           <Route element={<AppLayout />}>
             <Route index element={<AuthorizedIndex />} />
-            <Route element={<SectionRoute section="dashboard" />}>
-              <Route
-                path={appRoutes.dashboard}
-                element={
-                  <LazyRoute>
-                    <DashboardPage />
-                  </LazyRoute>
-                }
-              />
-            </Route>
             {placeholderRoutes.map(({ section, path, title }) => (
               <Route key={path} element={<SectionRoute section={section} />}>
                 <Route

@@ -152,15 +152,25 @@ describe('local Google Ads fixtures', () => {
     )
   })
 
-  it('supports OAuth, synchronization history and valid export formats', async () => {
+  it('supports the account UI lifecycle and valid export formats', async () => {
     const base = await start('full')
     const headers = await login(base)
-    const accounts = (await (
-      await fetch(`${base}/api/v1/ads-accounts?limit=100`, { headers })
-    ).json()) as { data: Array<{ id: string; connection_status: string }> }
-    const disconnected = accounts.data.find(
-      (account) => account.connection_status === 'disconnected',
-    )!
+    const createdResponse = await fetch(`${base}/api/v1/ads-accounts`, {
+      method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'UI lifecycle account',
+        google_ads_customer_id: '1234567890',
+        currency_code: 'EUR',
+        country_code: 'DE',
+      }),
+    })
+    expect(createdResponse.status).toBe(201)
+    const created = (await createdResponse.json()) as {
+      data: { id: string; connection_status: string }
+    }
+    expect(created.data.connection_status).toBe('disconnected')
+    const disconnected = created.data
     const oauth = (await (
       await fetch(`${base}/api/v1/google-ads/accounts/${disconnected.id}/oauth`, { headers })
     ).json()) as { data: { authorization_url: string } }
@@ -179,7 +189,22 @@ describe('local Google Ads fixtures', () => {
       await fetch(`${base}/api/v1/google-ads/accounts/${disconnected.id}/connection`, { headers })
     ).json()) as { data: { connected: boolean } }
     expect(disconnectedAgain.data.connected).toBe(false)
-    expect(await fetch(`${base}${oauth.data.authorization_url}`, { headers })).toBeTruthy()
+    expect((await fetch(`${base}${oauth.data.authorization_url}`, { headers })).ok).toBe(true)
+
+    const revoke = await fetch(`${base}/api/v1/google-ads/accounts/${disconnected.id}/grant`, {
+      method: 'DELETE',
+      headers,
+    })
+    expect(revoke.status).toBe(204)
+    const afterRevoke = (await (
+      await fetch(`${base}/api/v1/ads-accounts/${disconnected.id}`, { headers })
+    ).json()) as {
+      data: { connection_status: string; last_sync_error: string | null }
+    }
+    expect(afterRevoke.data.connection_status).toBe('disconnected')
+    expect(afterRevoke.data.last_sync_error).toBe('LOCAL MOCK: Google OAuth grant revoked')
+
+    expect((await fetch(`${base}${oauth.data.authorization_url}`, { headers })).ok).toBe(true)
 
     const sync = await fetch(`${base}/api/v1/google-ads/accounts/${disconnected.id}/sync`, {
       method: 'POST',

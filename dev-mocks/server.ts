@@ -618,6 +618,17 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
         },
       }
     }
+    const grantMatch = /^\/google-ads\/accounts\/([^/]+)\/grant$/.exec(path)
+    if (grantMatch && method === 'DELETE') {
+      const account = db.accounts.find((candidate) => candidate.id === grantMatch[1])
+      if (!account) return jsonError(404, 'NOT_FOUND', 'account not found')
+      account.connection_status = 'disconnected'
+      account.connected_at = null
+      account.last_sync_status = 'failed'
+      account.last_sync_error = 'LOCAL MOCK: Google OAuth grant revoked'
+      account.updated_at = new Date().toISOString()
+      return { status: 204 }
+    }
     const oauthMatch = /^\/google-ads\/accounts\/([^/]+)\/oauth$/.exec(path)
     if (oauthMatch)
       return {
@@ -635,6 +646,9 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
         return jsonError(400, 'INVALID_OAUTH_STATE', 'invalid local mock OAuth callback')
       account.connection_status = 'connected'
       account.connected_at = new Date().toISOString()
+      account.status = 'active'
+      account.last_sync_error = null
+      account.updated_at = new Date().toISOString()
       return { body: { data: { connected: true, ads_account_id: account.id } } }
     }
     const resourcesMatch = /^\/google-ads\/accounts\/([^/]+)\/resources\/([^/]+)$/.exec(path)

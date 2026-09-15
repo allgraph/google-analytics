@@ -300,6 +300,63 @@ export interface Account {
   sites: Site[]
 }
 
+export type GoogleAdsConnectionStatus = 'connected' | 'disconnected' | 'error'
+export type GoogleAdsSyncStatus = 'success' | 'running' | 'failed' | 'stale' | null
+
+export interface GoogleAdsAccount {
+  id: EntityId
+  tenant_id: EntityId
+  name: string
+  google_ads_customer_id: string
+  currency_code: string
+  country_code: string
+  timezone: string
+  status: 'active' | 'inactive'
+  connection_status: GoogleAdsConnectionStatus
+  connected_at: IsoDateTime | null
+  last_sync_at: IsoDateTime | null
+  last_sync_status: GoogleAdsSyncStatus
+  last_sync_error: string | null
+  created_at: IsoDateTime
+  updated_at: IsoDateTime
+}
+
+export interface GoogleAdsAccountRequest {
+  name: string
+  google_ads_customer_id: string
+  currency_code: string
+  country_code: string
+  timezone?: string
+  status?: 'active' | 'inactive'
+}
+
+export interface GoogleAdsConnection {
+  ads_account_id: EntityId
+  connected: boolean
+  status: GoogleAdsConnectionStatus
+}
+
+export interface GoogleAdsOAuthStart {
+  authorization_url: string
+}
+
+export interface GoogleAdsOAuthResult {
+  ads_account_id: EntityId
+  connected: boolean
+}
+
+export interface GoogleAdsSyncJob {
+  id: EntityId
+  google_ads_account_id: EntityId
+  started_at: IsoDateTime
+  finished_at: IsoDateTime | null
+  status: 'running' | 'success' | 'failed'
+  received: number
+  inserted: number
+  updated: number
+  error: string | null
+}
+
 export interface PhoneNumber {
   id: EntityId
   site_id: EntityId

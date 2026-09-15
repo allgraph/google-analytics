@@ -16,6 +16,11 @@ import { useAppStore } from './store/useAppStore'
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then(({ DashboardPage }) => ({ default: DashboardPage })),
 )
+const GoogleAdsAccountsPage = lazy(() =>
+  import('./pages/GoogleAdsAccountsPage').then(({ GoogleAdsAccountsPage }) => ({
+    default: GoogleAdsAccountsPage,
+  })),
+)
 const PlaceholderPage = lazy(() =>
   import('./pages/PlaceholderPage').then(({ PlaceholderPage }) => ({ default: PlaceholderPage })),
 )
@@ -38,7 +43,6 @@ function AuthorizedIndex() {
 }
 
 const placeholderRoutes: ReadonlyArray<{ section: Section; path: string; title: string }> = [
-  { section: 'adsAccounts', path: appRoutes.adsAccounts, title: 'Google Ads Accounts' },
   { section: 'campaigns', path: appRoutes.campaigns, title: 'Campaigns' },
   { section: 'adGroups', path: appRoutes.adGroups, title: 'Ad Groups' },
   { section: 'ads', path: appRoutes.ads, title: 'Ads' },
@@ -63,6 +67,16 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <DashboardPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="adsAccounts" />}>
+              <Route
+                path={appRoutes.adsAccounts}
+                element={
+                  <LazyRoute>
+                    <GoogleAdsAccountsPage />
                   </LazyRoute>
                 }
               />

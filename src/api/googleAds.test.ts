@@ -105,6 +105,16 @@ describe('advertising metric adapters', () => {
     expect(result.rows[1].metrics.spend).toEqual({ amount: '123.45', currency: 'CHF' })
   })
 
+  it('accepts a successful empty overview without optional totals metadata', () => {
+    const result = normalizeAnalyticsOverview({
+      from: '2026-08-18T00:00:00Z',
+      to: '2026-09-17T00:00:00Z',
+      rows: [],
+    })
+
+    expect(result).toMatchObject({ rows: [], totals: [], data_source: 'unverified' })
+  })
+
   it('normalizes metrics and nested offset pagination in breakdowns', () => {
     const source: AnalyticsBreakdownDto = {
       from: '2026-09-01',

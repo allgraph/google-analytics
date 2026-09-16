@@ -185,11 +185,12 @@ export function normalizeGoogleAdsDimension(dimension: GoogleAdsDimensionDto): G
 export function normalizeAnalyticsOverview(overview: AnalyticsOverviewDto): AnalyticsOverview {
   return {
     ...overview,
+    data_source: overview.data_source ?? 'unverified',
     rows: overview.rows.map((row) => ({
       ...row,
       metrics: normalizeAdvertisingMetrics(row.metrics),
     })),
-    totals: overview.totals.map(normalizeAdvertisingMetrics),
+    totals: (overview.totals ?? []).map(normalizeAdvertisingMetrics),
   }
 }
 

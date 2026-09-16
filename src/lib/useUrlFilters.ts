@@ -94,7 +94,21 @@ export function useUrlFilters(): UrlFiltersApi {
     [update],
   )
 
-  const setPeriod = useCallback((preset: PeriodPreset) => update({ period: preset }), [update])
+  const setPeriod = useCallback(
+    (preset: PeriodPreset) => {
+      if (preset === 'custom') {
+        const fallback = periodQueryParams(DEFAULT_PERIOD)
+        update({
+          period: preset,
+          from: state.filters.from ?? fallback?.from ?? null,
+          to: state.filters.to ?? fallback?.to ?? null,
+        })
+        return
+      }
+      update({ period: preset, from: null, to: null })
+    },
+    [state.filters.from, state.filters.to, update],
+  )
 
   const setPage = useCallback(
     (page: number) => update({ page: page > 1 ? String(page) : null }, false),

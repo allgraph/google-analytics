@@ -1,9 +1,9 @@
-import { Button, Dropdown, Input, Tag } from 'antd'
+import { Button, Dropdown, Input, Popover, Tag } from 'antd'
 import type { MenuProps } from 'antd'
 import { ChevronDown, Search, SlidersHorizontal } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import type { PendingId } from '../../lib/pendingRegistry'
-import { periodLabels, periodOptions, type PeriodPreset } from '../../lib/period'
+import { periodLabels, periodOptions } from '../../lib/period'
 import type { UrlFiltersApi } from '../../lib/useUrlFilters'
 import { PendingData } from '../pending'
 import styles from './FilterBar.module.css'
@@ -11,7 +11,9 @@ import styles from './FilterBar.module.css'
 export interface FilterDefinition {
   key: string
   label: string
-  options: { value: string; label: string }[]
+  options?: { value: string; label: string }[]
+  /** Произвольное строковое значение вместо списка вариантов. */
+  text?: boolean
   /** Подпись значения «все» — у периода это «30 дней». */
   allLabel?: string
   /** Фильтры, которые нужно сбросить при смене этого значения. */
@@ -22,6 +24,8 @@ export interface FilterDefinition {
 
 interface FilterBarProps {
   filters: UrlFiltersApi
+  /** Пользовательский контрол перед стандартными фильтрами, например multi-account picker. */
+  leading?: ReactNode
   /** Фильтры в строке. */
   base: FilterDefinition[]
   /** Фильтры за кнопкой «Ещё фильтры (N)». */
@@ -36,14 +40,15 @@ interface FilterBarProps {
  * Панель фильтров (GA-27): базовые фильтры в строке, остальные — в «Ещё фильтры», чипсы
  * выбранных значений и сброс. Состав и подписи — из прототипа.
  */
-export function FilterBar({ filters, base, more = [], search, actions }: FilterBarProps) {
+export function FilterBar({ filters, leading, base, more = [], search, actions }: FilterBarProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const chips = collectChips(filters, [...base, ...more])
 
   return (
     <div className={styles.bar}>
       <div className={styles.row}>
-        <PeriodFilter period={filters.period} onChange={filters.setPeriod} />
+        <PeriodFilter filters={filters} />
+        {leading}
         {base.map((filter) => (
           <FilterButton key={filter.key} filter={filter} filters={filters} />
         ))}
@@ -119,42 +124,85 @@ export function FilterBar({ filters, base, more = [], search, actions }: FilterB
   )
 }
 
-function PeriodFilter({
-  period,
-  onChange,
-}: {
-  period: PeriodPreset
-  onChange: (preset: PeriodPreset) => void
-}) {
-  const items: MenuProps['items'] = periodOptions().map((option) => ({
-    key: option.value,
-    label: option.label,
-  }))
+function PeriodFilter({ filters }: { filters: UrlFiltersApi }) {
+  const [open, setOpen] = useState(false)
+  const period = filters.period
+  const content = (
+    <div className={styles.periodMenu} role="menu" aria-label="Период">
+      {periodOptions().map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={option.value === period ? styles.periodOptionSelected : undefined}
+          onClick={() => {
+            filters.setPeriod(option.value)
+            if (option.value !== 'custom') setOpen(false)
+          }}
+        >
+          <span>{option.label}</span>
+          {option.value === period ? <span>✓</span> : null}
+        </button>
+      ))}
+      {period === 'custom' ? (
+        <div className={styles.customRange}>
+          <Input
+            aria-label="Дата с"
+            type="date"
+            max={filters.filters.to || undefined}
+            value={filters.filters.from ?? ''}
+            onChange={(event) => filters.setFilter('from', event.target.value || null)}
+          />
+          <Input
+            aria-label="Дата по"
+            type="date"
+            min={filters.filters.from || undefined}
+            value={filters.filters.to ?? ''}
+            onChange={(event) => filters.setFilter('to', event.target.value || null)}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
 
   return (
-    <Dropdown
+    <Popover
+      content={content}
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottomLeft"
       trigger={['click']}
-      menu={{ items, selectedKeys: [period], onClick: ({ key }) => onChange(key as PeriodPreset) }}
     >
-      <Button icon={<ChevronDown size={14} />} iconPosition="end">
+      <Button icon={<ChevronDown size={14} />} iconPlacement="end">
         Период: {periodLabels[period]}
       </Button>
-    </Dropdown>
+    </Popover>
   )
 }
 
 function FilterButton({ filter, filters }: { filter: FilterDefinition; filters: UrlFiltersApi }) {
   const current = filters.filters[filter.key]
+  if (filter.text) {
+    return (
+      <Input
+        allowClear
+        className={styles.textFilter}
+        aria-label={filter.label}
+        placeholder={filter.label}
+        value={current ?? ''}
+        onChange={(event) => filters.setFilter(filter.key, event.target.value || null)}
+      />
+    )
+  }
   const currentLabel =
-    filter.options.find((option) => option.value === current)?.label ?? filter.allLabel ?? 'Все'
+    filter.options?.find((option) => option.value === current)?.label ?? filter.allLabel ?? 'Все'
 
   const items: MenuProps['items'] = [
     { key: '', label: filter.allLabel ?? 'Все' },
-    ...filter.options.map((option) => ({ key: option.value, label: option.label })),
+    ...(filter.options ?? []).map((option) => ({ key: option.value, label: option.label })),
   ]
 
   const button = (
-    <Button icon={<ChevronDown size={14} />} iconPosition="end" disabled={!!filter.pending}>
+    <Button icon={<ChevronDown size={14} />} iconPlacement="end" disabled={!!filter.pending}>
       {filter.label}: {currentLabel}
     </Button>
   )
@@ -193,7 +241,7 @@ function collectChips(
     .filter((definition) => filters.filters[definition.key])
     .map((definition) => {
       const value = filters.filters[definition.key]
-      const label = definition.options.find((option) => option.value === value)?.label ?? value
+      const label = definition.options?.find((option) => option.value === value)?.label ?? value
       return {
         key: definition.key,
         label: `${definition.label}: ${label}`,

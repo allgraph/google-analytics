@@ -1,12 +1,13 @@
 import { Alert, Button, Card, Empty, Input, Popover, Skeleton } from 'antd'
-import { CalendarDays, ChevronDown, RefreshCw, UsersRound } from 'lucide-react'
+import { CalendarDays, ChevronDown, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { useAdsAccountsQuery, useAnalyticsOverviewQuery } from '../api/hooks'
 import { queryKeys, serverEntities } from '../api/queryKeys'
-import type { AnalyticsMetricTotal, GoogleAdsAccount } from '../api/types'
+import type { AnalyticsMetricTotal } from '../api/types'
 import { ApiErrorState } from '../components/ApiErrorState'
+import { GoogleAdsAccountPicker } from '../components/GoogleAdsAccountPicker'
 import {
   EMPTY_VALUE,
   formatMoney,
@@ -15,6 +16,8 @@ import {
   formatPercent,
 } from '../lib/format'
 import { periodLabels, type PeriodPreset } from '../lib/period'
+import { accountIdsFromUrl, accountIdsToUrl } from '../lib/googleAdsUrlState'
+import { useUrlFilters } from '../lib/useUrlFilters'
 import { appRoutes } from '../routing/routes'
 import pageStyles from './Page.module.css'
 import styles from './DashboardPage.module.css'
@@ -26,12 +29,6 @@ import {
   summarizeDashboardMetrics,
   type CustomPeriodRange,
 } from './dashboard'
-
-const accountStatusLabels: Record<GoogleAdsAccount['connection_status'], string> = {
-  connected: 'подключён',
-  disconnected: 'отключён',
-  error: 'ошибка OAuth',
-}
 
 const initialCustomRange = (): CustomPeriodRange => {
   const today = new Date()
@@ -88,98 +85,6 @@ function currencyValues(
   format: (total: AnalyticsMetricTotal) => string,
 ): KpiValue[] {
   return totals.map((total) => ({ currency: total.spend.currency, value: format(total) }))
-}
-
-function AccountPicker({
-  accounts,
-  selectedIds,
-  allSelected,
-  loading,
-  onChange,
-  onSelectAll,
-}: {
-  accounts: GoogleAdsAccount[]
-  selectedIds: string[]
-  allSelected: boolean
-  loading: boolean
-  onChange: (ids: string[]) => void
-  onSelectAll: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const selected = new Set(selectedIds)
-  const label = allSelected
-    ? 'Все аккаунты'
-    : selectedIds.length === 0
-      ? 'Аккаунты не выбраны'
-      : selectedIds.length === 1
-        ? (accounts.find((account) => account.id === selectedIds[0])?.name ?? '1 аккаунт')
-        : `Аккаунтов: ${selectedIds.length}`
-
-  const toggleAccount = (accountId: string) => {
-    const nextIds = selected.has(accountId)
-      ? selectedIds.filter((id) => id !== accountId)
-      : [...selectedIds, accountId]
-    onChange(nextIds)
-  }
-
-  const content = (
-    <div className={styles.accountMenu} role="menu" aria-label="Google Ads аккаунты">
-      <div className={styles.accountMenuActions}>
-        <button type="button" onClick={onSelectAll}>
-          Все аккаунты
-        </button>
-        <button type="button" onClick={() => onChange([])}>
-          Снять всё
-        </button>
-      </div>
-      <div className={styles.accountMenuList}>
-        {accounts.map((account) => {
-          const checked = selected.has(account.id)
-          return (
-            <button
-              key={account.id}
-              type="button"
-              className={checked ? styles.accountOptionSelected : undefined}
-              role="menuitemcheckbox"
-              aria-checked={checked}
-              onClick={() => toggleAccount(account.id)}
-            >
-              <input type="checkbox" checked={checked} readOnly tabIndex={-1} />
-              <span className={styles.accountName}>{account.name}</span>
-              <span
-                className={`${styles.statusDot} ${styles[account.connection_status]}`}
-                title={accountStatusLabels[account.connection_status]}
-                aria-label={accountStatusLabels[account.connection_status]}
-              />
-              <span className={styles.customerId}>{account.google_ads_customer_id}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-
-  return (
-    <Popover
-      content={content}
-      open={open}
-      placement="bottomLeft"
-      trigger="click"
-      onOpenChange={setOpen}
-    >
-      <Button
-        className={`${styles.filterButton} ${!allSelected ? styles.filterButtonActive : ''}`}
-        disabled={!accounts.length}
-        loading={loading}
-        aria-label="Выбрать Google Ads аккаунты"
-        aria-expanded={open}
-      >
-        <UsersRound size={15} />
-        <span className={styles.filterButtonLabel}>{label}</span>
-        <ChevronDown size={12} />
-      </Button>
-    </Popover>
-  )
 }
 
 function PeriodPicker({
@@ -260,17 +165,25 @@ function daysInRange(from: unknown, to: unknown) {
 export function DashboardPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [period, setPeriod] = useState<PeriodPreset>('last30')
-  const [customRange, setCustomRange] = useState<CustomPeriodRange>(initialCustomRange)
-  const [accountSelection, setAccountSelection] = useState<string[] | null>(null)
+  const urlFilters = useUrlFilters()
+  const period = urlFilters.period
+  const fallbackRange = useMemo(() => initialCustomRange(), [])
+  const customRange: CustomPeriodRange = useMemo(
+    () => ({
+      from: urlFilters.filters.from ?? fallbackRange.from,
+      to: urlFilters.filters.to ?? fallbackRange.to,
+    }),
+    [fallbackRange, urlFilters.filters.from, urlFilters.filters.to],
+  )
 
   const accountsQuery = useAdsAccountsQuery({ page: 1, per_page: 100 })
   const accounts = useMemo(() => accountsQuery.data?.data ?? [], [accountsQuery.data])
-  const selectedAccountIds = useMemo(() => {
-    if (accountSelection === null) return accounts.map((account) => account.id)
-    const available = new Set(accounts.map((account) => account.id))
-    return accountSelection.filter((accountId) => available.has(accountId))
-  }, [accountSelection, accounts])
+  const availableAccountIds = useMemo(() => accounts.map((account) => account.id), [accounts])
+  const selectedAccountIds = useMemo(
+    () => accountIdsFromUrl(urlFilters.filters, availableAccountIds),
+    [availableAccountIds, urlFilters.filters],
+  )
+  const allAccountsInUrl = !urlFilters.filters.ads_account_ids && !urlFilters.filters.ads_account_id
   const allAccountsSelected = accounts.length > 0 && selectedAccountIds.length === accounts.length
   const selectedAccounts = useMemo(
     () => accounts.filter((account) => selectedAccountIds.includes(account.id)),
@@ -285,9 +198,9 @@ export function DashboardPage() {
       dashboardOverviewQuery(
         period,
         customRange,
-        accountSelection === null ? undefined : selectedAccountIds,
+        allAccountsInUrl ? undefined : selectedAccountIds,
       ),
-    [accountSelection, customRange, period, selectedAccountIds],
+    [allAccountsInUrl, customRange, period, selectedAccountIds],
   )
   const overviewQuery = useAnalyticsOverviewQuery(overviewParams ?? {}, {
     enabled: accountsQuery.isSuccess && selectedAccountIds.length > 0 && overviewParams !== null,
@@ -296,7 +209,10 @@ export function DashboardPage() {
   const summary = useMemo(() => summarizeDashboardMetrics(totals), [totals])
 
   const handleAccountChange = (ids: string[]) => {
-    setAccountSelection(ids.length === accounts.length ? null : ids)
+    urlFilters.setFilters({
+      ads_account_id: null,
+      ads_account_ids: accountIdsToUrl(ids, availableAccountIds),
+    })
   }
 
   const rangeLabel = overviewParams
@@ -346,7 +262,10 @@ export function DashboardPage() {
       return (
         <Card className={styles.stateCard}>
           <Empty description="Выберите один, несколько или все аккаунты">
-            <Button type="primary" onClick={() => setAccountSelection(null)}>
+            <Button
+              type="primary"
+              onClick={() => urlFilters.setFilters({ ads_account_id: null, ads_account_ids: null })}
+            >
               Выбрать все аккаунты
             </Button>
           </Empty>
@@ -446,19 +365,19 @@ export function DashboardPage() {
       </header>
 
       <div className={styles.controlStrip} aria-label="Фильтры Dashboard">
-        <AccountPicker
+        <GoogleAdsAccountPicker
           accounts={accounts}
           selectedIds={selectedAccountIds}
           allSelected={allAccountsSelected}
           loading={accountsQuery.isPending}
           onChange={handleAccountChange}
-          onSelectAll={() => setAccountSelection(null)}
+          onSelectAll={() => urlFilters.setFilters({ ads_account_id: null, ads_account_ids: null })}
         />
         <PeriodPicker
           period={period}
           customRange={customRange}
-          onPeriodChange={setPeriod}
-          onCustomRangeChange={setCustomRange}
+          onPeriodChange={urlFilters.setPeriod}
+          onCustomRangeChange={(range) => urlFilters.setFilters({ from: range.from, to: range.to })}
         />
         <span className={styles.rangeLabel}>{rangeLabel}</span>
       </div>

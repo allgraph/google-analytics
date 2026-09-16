@@ -2,15 +2,10 @@ import { Breadcrumb, Button, Card, Empty } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { SortOrder as TableSortOrder } from 'antd/es/table/interface'
 import { Settings2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
-import {
-  useAdsAccountsQuery,
-  useGoogleAdsAdGroupsQuery,
-  useGoogleAdsAdsQuery,
-  useGoogleAdsCampaignsQuery,
-} from '../api/hooks'
+import { useAdsAccountsQuery, useAnalyticsBreakdownListQuery } from '../api/hooks'
 import type {
   AdvertisingMetrics,
   GoogleAdsAd,
@@ -20,9 +15,11 @@ import type {
   ListEnvelope,
 } from '../api/types'
 import { ApiErrorState } from '../components/ApiErrorState'
-import { ColumnSettings, DataTable, FilterBar, ValueCell } from '../components/list'
+import { GoogleAdsAccountPicker } from '../components/GoogleAdsAccountPicker'
+import { ColumnSettings, DataTable, ExportButton, FilterBar, ValueCell } from '../components/list'
 import { useColumnPreferences } from '../lib/columnPreferences'
 import { formatMoney, formatNumber, formatPercent } from '../lib/format'
+import { accountIdsFromUrl, accountIdsToUrl } from '../lib/googleAdsUrlState'
 import { useUrlFilters, type UrlFiltersApi } from '../lib/useUrlFilters'
 import { appRoutes } from '../routing/routes'
 import type { ApiError } from '../services/api'
@@ -50,7 +47,7 @@ const pageConfig = {
   ads: {
     title: 'Ads',
     heading: 'Объявления',
-    subtitle: 'Статистика объявлений за выбранный период',
+    subtitle: 'Клик по строке открывает ключевые слова',
   },
 } as const
 
@@ -338,36 +335,53 @@ function EntityTable<T extends GoogleAdsEntity>({
 
 export function CampaignHierarchyPage({ kind }: { kind: HierarchyPageKind }) {
   const filters = useUrlFilters()
-  const { setFilter } = filters
   const navigate = useNavigate()
   const location = useLocation()
   const accountsQuery = useAdsAccountsQuery({ page: 1, per_page: 100 })
   const accounts = useMemo(() => accountsQuery.data?.data ?? [], [accountsQuery.data])
-  const accountId = filters.filters.ads_account_id ?? ''
+  const availableAccountIds = useMemo(() => accounts.map((account) => account.id), [accounts])
+  const selectedAccountIds = useMemo(
+    () => accountIdsFromUrl(filters.filters, availableAccountIds),
+    [availableAccountIds, filters.filters],
+  )
+  const allAccountsInUrl = !filters.filters.ads_account_ids && !filters.filters.ads_account_id
+  const allAccountsSelected =
+    accounts.length > 0 && selectedAccountIds.length === availableAccountIds.length
 
-  useEffect(() => {
-    if (!accountId && accounts[0]) setFilter('ads_account_id', accounts[0].id)
-  }, [accountId, accounts, setFilter])
+  const queryParams = {
+    ...hierarchyEntityQueryFromUrl(filters, kind),
+    ...(allAccountsInUrl ? {} : { ads_account_ids: selectedAccountIds }),
+  }
+  const campaignReferenceParams = {
+    ...hierarchyReferenceQueryFromUrl(filters),
+    ...(allAccountsInUrl ? {} : { ads_account_ids: selectedAccountIds }),
+  }
+  const adGroupReferenceParams = {
+    ...hierarchyReferenceQueryFromUrl(filters, true),
+    ...(allAccountsInUrl ? {} : { ads_account_ids: selectedAccountIds }),
+  }
+  const groupBy = kind === 'campaigns' ? 'campaign' : kind === 'ad-groups' ? 'ad_group' : 'ad'
 
-  const queryParams = hierarchyEntityQueryFromUrl(filters, kind)
-  const campaignReferenceParams = hierarchyReferenceQueryFromUrl(filters)
-  const adGroupReferenceParams = hierarchyReferenceQueryFromUrl(filters, true)
-
-  const campaignsQuery = useGoogleAdsCampaignsQuery(accountId, queryParams, {
-    enabled: kind === 'campaigns' && !!accountId,
-  })
-  const adGroupsQuery = useGoogleAdsAdGroupsQuery(accountId, queryParams, {
-    enabled: kind === 'ad-groups' && !!accountId,
-  })
-  const adsQuery = useGoogleAdsAdsQuery(accountId, queryParams, {
-    enabled: kind === 'ads' && !!accountId,
-  })
-  const campaignReferences = useGoogleAdsCampaignsQuery(accountId, campaignReferenceParams, {
-    enabled: kind !== 'campaigns' && !!accountId,
-  })
-  const adGroupReferences = useGoogleAdsAdGroupsQuery(accountId, adGroupReferenceParams, {
-    enabled: kind === 'ads' && !!accountId,
-  })
+  const campaignsQuery = useAnalyticsBreakdownListQuery<GoogleAdsCampaign>(
+    { ...queryParams, group_by: 'campaign' },
+    { enabled: kind === 'campaigns' && selectedAccountIds.length > 0 },
+  )
+  const adGroupsQuery = useAnalyticsBreakdownListQuery<GoogleAdsAdGroup>(
+    { ...queryParams, group_by: 'ad_group' },
+    { enabled: kind === 'ad-groups' && selectedAccountIds.length > 0 },
+  )
+  const adsQuery = useAnalyticsBreakdownListQuery<GoogleAdsAd>(
+    { ...queryParams, group_by: 'ad' },
+    { enabled: kind === 'ads' && selectedAccountIds.length > 0 },
+  )
+  const campaignReferences = useAnalyticsBreakdownListQuery<GoogleAdsCampaign>(
+    { ...campaignReferenceParams, group_by: 'campaign' },
+    { enabled: kind !== 'campaigns' && selectedAccountIds.length > 0 },
+  )
+  const adGroupReferences = useAnalyticsBreakdownListQuery<GoogleAdsAdGroup>(
+    { ...adGroupReferenceParams, group_by: 'ad_group' },
+    { enabled: kind === 'ads' && selectedAccountIds.length > 0 },
+  )
 
   const accountNames = useMemo(
     () => new Map(accounts.map((account) => [account.id, account.name])),
@@ -425,16 +439,7 @@ export function CampaignHierarchyPage({ kind }: { kind: HierarchyPageKind }) {
     value: group.ad_group_id,
     label: group.name ?? group.ad_group_id,
   }))
-  const accountOptions = accounts.map((account) => ({ value: account.id, label: account.name }))
-
   const baseFilters = [
-    {
-      key: 'ads_account_id',
-      label: 'Аккаунт',
-      options: accountOptions,
-      allLabel: accountsQuery.isPending ? 'Загрузка…' : 'Выберите',
-      clearOnChange: ['campaign_id', 'ad_group_id', 'ad_id'],
-    },
     ...(kind !== 'campaigns'
       ? [
           {
@@ -461,6 +466,22 @@ export function CampaignHierarchyPage({ kind }: { kind: HierarchyPageKind }) {
       label: 'Статус',
       options: Object.entries(statusLabels).map(([value, label]) => ({ value, label })),
     },
+  ]
+  const moreFilters = [
+    {
+      key: 'device',
+      label: 'Устройство',
+      options: [
+        { value: 'DESKTOP', label: 'Компьютеры' },
+        { value: 'MOBILE', label: 'Мобильные' },
+        { value: 'TABLET', label: 'Планшеты' },
+        { value: 'OTHER', label: 'Другие' },
+      ],
+    },
+    { key: 'country', label: 'Страна', text: true },
+    { key: 'region', label: 'Регион', text: true },
+    { key: 'city', label: 'Город', text: true },
+    { key: 'geo_id', label: 'Geo ID', text: true },
   ]
 
   const breadcrumbItems =
@@ -512,7 +533,7 @@ export function CampaignHierarchyPage({ kind }: { kind: HierarchyPageKind }) {
       )
     }
     if (!accounts.length) return <Empty description="Google Ads аккаунты ещё не добавлены" />
-    if (!accountId) return <Empty description="Выберите Google Ads аккаунт" />
+    if (!selectedAccountIds.length) return <Empty description="Выберите Google Ads аккаунты" />
 
     if (kind === 'campaigns') {
       return (
@@ -549,6 +570,16 @@ export function CampaignHierarchyPage({ kind }: { kind: HierarchyPageKind }) {
         columns={columns as TableColumnsType<GoogleAdsAd>}
         filters={filters}
         visibleKeys={preferences.visibleKeys}
+        onRowClick={(row) =>
+          navigate({
+            pathname: appRoutes.keywords,
+            search: hierarchyNavigationSearch(location.search, {
+              campaignId: row.campaign_id,
+              adGroupId: row.ad_group_id,
+              adId: row.ad_id,
+            }),
+          })
+        }
       />
     )
   }
@@ -568,11 +599,50 @@ export function CampaignHierarchyPage({ kind }: { kind: HierarchyPageKind }) {
         <div className={styles.toolbar}>
           <FilterBar
             filters={filters}
+            leading={
+              <GoogleAdsAccountPicker
+                accounts={accounts}
+                selectedIds={selectedAccountIds}
+                allSelected={allAccountsSelected}
+                loading={accountsQuery.isPending}
+                onChange={(ids) =>
+                  filters.setFilters({
+                    ads_account_id: null,
+                    ads_account_ids: accountIdsToUrl(ids, availableAccountIds),
+                    campaign_id: null,
+                    ad_group_id: null,
+                    ad_id: null,
+                    keyword: null,
+                    search_term: null,
+                  })
+                }
+                onSelectAll={() =>
+                  filters.setFilters({
+                    ads_account_id: null,
+                    ads_account_ids: null,
+                    campaign_id: null,
+                    ad_group_id: null,
+                    ad_id: null,
+                    keyword: null,
+                    search_term: null,
+                  })
+                }
+              />
+            }
             base={baseFilters}
+            more={moreFilters}
             actions={
-              <Button icon={<Settings2 size={15} />} onClick={() => setSettingsOpen(true)}>
-                Колонки
-              </Button>
+              <>
+                <Button icon={<Settings2 size={15} />} onClick={() => setSettingsOpen(true)}>
+                  Колонки
+                </Button>
+                <ExportButton
+                  filters={filters}
+                  groupBy={groupBy}
+                  columns={preferences.visibleKeys}
+                  disabled={selectedAccountIds.length === 0}
+                />
+              </>
             }
           />
         </div>

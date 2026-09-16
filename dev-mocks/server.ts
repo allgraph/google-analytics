@@ -86,6 +86,7 @@ function listResponse<T>(items: T[], url: URL): MockResponse {
   const sort = url.searchParams.get('sort')
   const direction = url.searchParams.get('order') === 'asc' ? 1 : -1
   const metricSortAliases: Record<string, string> = {
+    search_term: 'name',
     spend: 'spend_minor',
     average_cpc: 'average_cpc_minor',
     cpa: 'cpa_minor',
@@ -151,6 +152,25 @@ function entityRows(entities: MockEntity[], url: URL, db: MockDatabase): GoogleA
       (entity) =>
         !url.searchParams.get('status') || entity.status === url.searchParams.get('status'),
     )
+    .filter((entity) => {
+      const account = db.accounts.find((candidate) => candidate.id === entity.google_ads_account_id)
+      const numericId = Number(entity.id.replace(/\D/g, '').slice(-2)) || 0
+      const device = ['DESKTOP', 'MOBILE', 'TABLET', 'OTHER'][numericId % 4]
+      const geography =
+        account?.country_code === 'CH'
+          ? { region: 'Zürich', city: 'Zürich', geo_id: '1003297' }
+          : account?.country_code === 'AT'
+            ? { region: 'Wien', city: 'Wien', geo_id: '1000997' }
+            : { region: 'Berlin', city: 'Berlin', geo_id: '1003854' }
+      return (
+        (!url.searchParams.get('device') || url.searchParams.get('device') === device) &&
+        (!url.searchParams.get('country') ||
+          url.searchParams.get('country') === account?.country_code) &&
+        (!url.searchParams.get('region') || url.searchParams.get('region') === geography.region) &&
+        (!url.searchParams.get('city') || url.searchParams.get('city') === geography.city) &&
+        (!url.searchParams.get('geo_id') || url.searchParams.get('geo_id') === geography.geo_id)
+      )
+    })
     .map(({ metrics_weight: weight, ...entity }) => {
       const account = db.accounts.find(
         (candidate) => candidate.id === entity.google_ads_account_id,
@@ -340,21 +360,51 @@ function breakdown(url: URL, db: MockDatabase): MockResponse {
 
 async function exportResponse(url: URL, db: MockDatabase): Promise<MockResponse> {
   const format = url.searchParams.get('format') ?? 'csv'
+  const exportUrl = new URL(url)
+  exportUrl.searchParams.set('limit', '100000')
+  exportUrl.searchParams.set('offset', '0')
   const data = (
-    overview(url, db).body as {
-      data: {
-        rows: Array<{ account_name: string; metrics: MockMetrics & { currency_code: string } }>
-      }
+    breakdown(exportUrl, db).body as {
+      data: { rows: Array<Record<string, unknown>> }
     }
   ).data.rows
-  const table = data.map((row) => ({
-    account: row.account_name,
-    currency: row.metrics.currency_code,
-    spend_minor: row.metrics.spend_minor,
-    impressions: row.metrics.impressions,
-    clicks: row.metrics.clicks,
-    conversions: row.metrics.conversions,
-  }))
+  const requestedColumns = (url.searchParams.get('columns') ?? '').split(',').filter(Boolean)
+  const defaultColumns = [
+    'account',
+    'name',
+    'status',
+    'spend',
+    'impressions',
+    'clicks',
+    'conversions',
+  ]
+  const columns = requestedColumns.length ? requestedColumns : defaultColumns
+  const accountNames = new Map(db.accounts.map((account) => [account.id, account.name]))
+  const metricAliases: Record<string, string> = {
+    spend: 'spend_minor',
+    average_cpc: 'average_cpc_minor',
+    cpa: 'cpa_minor',
+    conversion_value: 'conversion_value_minor',
+  }
+  const value = (row: Record<string, unknown>, column: string): string | number => {
+    const metrics = (row.metrics ?? {}) as Record<string, unknown>
+    if (column === 'account') {
+      return (row.account_name ??
+        accountNames.get(String(row.google_ads_account_id ?? '')) ??
+        String(row.google_ads_account_id ?? '')) as string
+    }
+    if (column === 'search_term') return String(row.name ?? '')
+    const raw = row[column] ?? metrics[metricAliases[column] ?? column] ?? ''
+    if (['spend', 'average_cpc', 'cpa', 'conversion_value'].includes(column)) {
+      const amount = raw === null || raw === '' ? '' : Number(raw) / 100
+      return amount === '' ? '' : `${metrics.currency_code ?? ''} ${amount}`.trim()
+    }
+    if (['ctr', 'conversion_rate'].includes(column) && typeof raw === 'number') return raw * 100
+    return typeof raw === 'number' ? raw : String(raw ?? '')
+  }
+  const table = data.map((row) =>
+    Object.fromEntries(columns.map((column) => [column, value(row, column)])),
+  )
   if (format === 'xlsx') {
     return {
       buffer: createXlsx(table),
@@ -364,7 +414,7 @@ async function exportResponse(url: URL, db: MockDatabase): Promise<MockResponse>
       },
     }
   }
-  const headers = Object.keys(table[0] ?? { account: '', currency: '' })
+  const headers = columns
   const csv = [
     headers.join(','),
     ...table.map((row) =>

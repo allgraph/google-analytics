@@ -1,14 +1,11 @@
-import { Button, Card, Tooltip } from 'antd'
+import { Breadcrumb, Button, Card, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { SortOrder as TableSortOrder } from 'antd/es/table/interface'
 import { LockKeyhole, Settings2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
-import {
-  useAdsAccountsQuery,
-  useGoogleAdsKeywordsQuery,
-  useGoogleAdsSearchTermsQuery,
-} from '../api/hooks'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAdsAccountsQuery, useAnalyticsBreakdownListQuery } from '../api/hooks'
 import type {
   GoogleAdsEntity,
   AdvertisingMetrics,
@@ -16,14 +13,18 @@ import type {
   GoogleAdsSearchTerm,
   ListEnvelope,
 } from '../api/types'
-import { ColumnSettings, DataTable, FilterBar, ValueCell } from '../components/list'
+import { GoogleAdsAccountPicker } from '../components/GoogleAdsAccountPicker'
+import { ColumnSettings, DataTable, ExportButton, FilterBar, ValueCell } from '../components/list'
 import { useColumnPreferences } from '../lib/columnPreferences'
 import { formatMoney, formatNumber, formatPercent } from '../lib/format'
+import { accountIdsFromUrl, accountIdsToUrl } from '../lib/googleAdsUrlState'
 import { useUrlFilters, type UrlFiltersApi } from '../lib/useUrlFilters'
+import { appRoutes } from '../routing/routes'
 import type { ApiError } from '../services/api'
 import pageStyles from './Page.module.css'
 import styles from './GoogleAdsEntitiesPage.module.css'
-import { entityQueryFromUrl, searchTermLabel } from './googleAdsEntityPage'
+import { entityNavigationSearch, entityQueryFromUrl, searchTermLabel } from './googleAdsEntityPage'
+import hierarchyStyles from './CampaignHierarchyPage.module.css'
 
 type PageKind = 'keywords' | 'search-terms'
 
@@ -67,7 +68,10 @@ function sortOrder(filters: TableSortState, key: string): TableSortOrder {
   return filters.sort === key ? (filters.order === 'asc' ? 'ascend' : 'descend') : null
 }
 
-function commonColumns<T extends GoogleAdsEntity>(filters: TableSortState): TableColumnsType<T> {
+function commonColumns<T extends GoogleAdsEntity>(
+  filters: TableSortState,
+  accountNames: ReadonlyMap<string, string>,
+): TableColumnsType<T> {
   const metric = (
     key: keyof AdvertisingMetrics,
     title: string,
@@ -81,6 +85,15 @@ function commonColumns<T extends GoogleAdsEntity>(filters: TableSortState): Tabl
     render: (_value: unknown, row: T) => render(row.metrics[key] as never),
   })
   return [
+    {
+      key: 'account',
+      title: 'Аккаунт',
+      render: (_value: unknown, row: T) => (
+        <ValueCell
+          value={accountNames.get(row.google_ads_account_id) ?? row.google_ads_account_id}
+        />
+      ),
+    },
     {
       key: 'match_type',
       title: labels.match_type,
@@ -123,17 +136,24 @@ function commonColumns<T extends GoogleAdsEntity>(filters: TableSortState): Tabl
     metric('spend', labels.spend, formatMoney),
     metric('impressions', labels.impressions, formatNumber),
     metric('clicks', labels.clicks, formatNumber),
-    metric('ctr', labels.ctr, formatPercent),
+    metric('ctr', labels.ctr, (value) =>
+      formatPercent(value === null ? null : Number(value) * 100),
+    ),
     metric('average_cpc', labels.average_cpc, formatMoney),
     metric('conversions', labels.conversions, formatNumber),
-    metric('conversion_rate', labels.conversion_rate, formatPercent),
+    metric('conversion_rate', labels.conversion_rate, (value) =>
+      formatPercent(value === null ? null : Number(value) * 100),
+    ),
     metric('cpa', labels.cpa, formatMoney),
     metric('conversion_value', labels.conversion_value, formatMoney),
     metric('roas', labels.roas, (value) => (value === null ? '—' : `${formatNumber(value)}×`)),
   ]
 }
 
-function keywordColumns(filters: TableSortState): TableColumnsType<GoogleAdsKeyword> {
+function keywordColumns(
+  filters: TableSortState,
+  accountNames: ReadonlyMap<string, string>,
+): TableColumnsType<GoogleAdsKeyword> {
   return [
     {
       key: 'name',
@@ -144,11 +164,14 @@ function keywordColumns(filters: TableSortState): TableColumnsType<GoogleAdsKeyw
       sortOrder: sortOrder(filters, 'name'),
       render: (value) => <ValueCell value={value} />,
     },
-    ...commonColumns<GoogleAdsKeyword>(filters),
+    ...commonColumns<GoogleAdsKeyword>(filters, accountNames),
   ]
 }
 
-function searchTermColumns(filters: TableSortState): TableColumnsType<GoogleAdsSearchTerm> {
+function searchTermColumns(
+  filters: TableSortState,
+  accountNames: ReadonlyMap<string, string>,
+): TableColumnsType<GoogleAdsSearchTerm> {
   return [
     {
       key: 'search_term',
@@ -169,7 +192,7 @@ function searchTermColumns(filters: TableSortState): TableColumnsType<GoogleAdsS
           <ValueCell value={searchTermLabel(row)} />
         ),
     },
-    ...commonColumns<GoogleAdsSearchTerm>(filters),
+    ...commonColumns<GoogleAdsSearchTerm>(filters, accountNames),
   ]
 }
 
@@ -178,60 +201,110 @@ function EntityTable<T extends GoogleAdsEntity>({
   columns,
   filters,
   visibleKeys,
+  onRowClick,
 }: {
   query: UseQueryResult<ListEnvelope<T>, ApiError>
   columns: TableColumnsType<T>
   filters: UrlFiltersApi
   visibleKeys: string[]
+  onRowClick?: (row: T) => void
 }) {
   const visible = visibleKeys.length
     ? columns.filter((column) => visibleKeys.includes(String(column.key)))
     : columns.slice(0, 1)
-  return <DataTable query={query} columns={visible} filters={filters} rowKey="id" />
+  return (
+    <DataTable
+      query={query}
+      columns={visible}
+      filters={filters}
+      rowKey="id"
+      onRowClick={onRowClick}
+    />
+  )
 }
 
 export function GoogleAdsEntitiesPage({ kind }: { kind: PageKind }) {
   const filters = useUrlFilters()
-  const { setFilter } = filters
+  const navigate = useNavigate()
+  const location = useLocation()
   const accounts = useAdsAccountsQuery()
-  const accountId = filters.filters.ads_account_id ?? ''
+  const accountRows = useMemo(() => accounts.data?.data ?? [], [accounts.data])
+  const availableAccountIds = useMemo(() => accountRows.map((account) => account.id), [accountRows])
+  const selectedAccountIds = useMemo(
+    () => accountIdsFromUrl(filters.filters, availableAccountIds),
+    [availableAccountIds, filters.filters],
+  )
+  const allAccountsInUrl = !filters.filters.ads_account_ids && !filters.filters.ads_account_id
+  const allAccountsSelected =
+    accountRows.length > 0 && selectedAccountIds.length === availableAccountIds.length
+  const accountNames = useMemo(
+    () => new Map(accountRows.map((account) => [account.id, account.name])),
+    [accountRows],
+  )
   const searchKey = kind === 'keywords' ? 'keyword' : 'search_term'
-  const queryParams = entityQueryFromUrl(filters, searchKey)
-  const keywords = useGoogleAdsKeywordsQuery(accountId, queryParams, {
-    enabled: kind === 'keywords' && !!accountId,
-  })
-  const searchTerms = useGoogleAdsSearchTermsQuery(accountId, queryParams, {
-    enabled: kind === 'search-terms' && !!accountId,
-  })
+  const queryParams = {
+    ...entityQueryFromUrl(filters, searchKey),
+    ...(allAccountsInUrl ? {} : { ads_account_ids: selectedAccountIds }),
+  }
+  const keywords = useAnalyticsBreakdownListQuery<GoogleAdsKeyword>(
+    { ...queryParams, group_by: 'keyword' },
+    { enabled: kind === 'keywords' && selectedAccountIds.length > 0 },
+  )
+  const searchTerms = useAnalyticsBreakdownListQuery<GoogleAdsSearchTerm>(
+    { ...queryParams, group_by: 'search_term' },
+    { enabled: kind === 'search-terms' && selectedAccountIds.length > 0 },
+  )
   const [settingsOpen, setSettingsOpen] = useState(false)
   const tableSort = useMemo(
     () => ({ sort: filters.sort, order: filters.order }),
     [filters.sort, filters.order],
   )
   const allColumns = useMemo(
-    () => (kind === 'keywords' ? keywordColumns(tableSort) : searchTermColumns(tableSort)),
-    [kind, tableSort],
+    () =>
+      kind === 'keywords'
+        ? keywordColumns(tableSort, accountNames)
+        : searchTermColumns(tableSort, accountNames),
+    [accountNames, kind, tableSort],
   )
   const columnKeys = useMemo(() => allColumns.map((column) => String(column.key)), [allColumns])
   const preferences = useColumnPreferences(`google-ads.${kind}`, columnKeys)
 
-  useEffect(() => {
-    if (!accountId && accounts.data?.data[0]) setFilter('ads_account_id', accounts.data.data[0].id)
-  }, [accountId, accounts.data, setFilter])
-
   const title = kind === 'keywords' ? 'Keywords' : 'Search Terms'
-  const accountOptions =
-    accounts.data?.data.map((account) => ({ value: account.id, label: account.name })) ?? []
+  const groupBy = kind === 'keywords' ? 'keyword' : 'search_term'
   const filterBar = (
     <FilterBar
       filters={filters}
+      leading={
+        <GoogleAdsAccountPicker
+          accounts={accountRows}
+          selectedIds={selectedAccountIds}
+          allSelected={allAccountsSelected}
+          loading={accounts.isPending}
+          onChange={(ids) =>
+            filters.setFilters({
+              ads_account_id: null,
+              ads_account_ids: accountIdsToUrl(ids, availableAccountIds),
+              campaign_id: null,
+              ad_group_id: null,
+              ad_id: null,
+              keyword: null,
+              search_term: null,
+            })
+          }
+          onSelectAll={() =>
+            filters.setFilters({
+              ads_account_id: null,
+              ads_account_ids: null,
+              campaign_id: null,
+              ad_group_id: null,
+              ad_id: null,
+              keyword: null,
+              search_term: null,
+            })
+          }
+        />
+      }
       base={[
-        {
-          key: 'ads_account_id',
-          label: 'Аккаунт',
-          options: accountOptions,
-          allLabel: accounts.isPending ? 'Загрузка…' : 'Выберите',
-        },
         {
           key: 'status',
           label: 'Статус',
@@ -243,14 +316,42 @@ export function GoogleAdsEntitiesPage({ kind }: { kind: PageKind }) {
           options: Object.entries(matchLabels).map(([value, label]) => ({ value, label })),
         },
       ]}
+      more={[
+        { key: 'campaign_id', label: 'Campaign ID', text: true },
+        { key: 'ad_group_id', label: 'Ad Group ID', text: true },
+        { key: 'ad_id', label: 'Ad ID', text: true },
+        ...(kind === 'search-terms' ? [{ key: 'keyword', label: 'Keyword ID', text: true }] : []),
+        {
+          key: 'device',
+          label: 'Устройство',
+          options: [
+            { value: 'DESKTOP', label: 'Компьютеры' },
+            { value: 'MOBILE', label: 'Мобильные' },
+            { value: 'TABLET', label: 'Планшеты' },
+            { value: 'OTHER', label: 'Другие' },
+          ],
+        },
+        { key: 'country', label: 'Страна', text: true },
+        { key: 'region', label: 'Регион', text: true },
+        { key: 'city', label: 'Город', text: true },
+        { key: 'geo_id', label: 'Geo ID', text: true },
+      ]}
       search={{
         filterKey: searchKey,
         placeholder: kind === 'keywords' ? 'Найти ключевое слово' : 'Найти поисковый запрос',
       }}
       actions={
-        <Button icon={<Settings2 size={15} />} onClick={() => setSettingsOpen(true)}>
-          Колонки
-        </Button>
+        <>
+          <Button icon={<Settings2 size={15} />} onClick={() => setSettingsOpen(true)}>
+            Колонки
+          </Button>
+          <ExportButton
+            filters={filters}
+            groupBy={groupBy}
+            columns={preferences.visibleKeys}
+            disabled={selectedAccountIds.length === 0}
+          />
+        </>
       }
     />
   )
@@ -261,6 +362,98 @@ export function GoogleAdsEntitiesPage({ kind }: { kind: PageKind }) {
         <h1 className={pageStyles.title}>{title}</h1>
         <p className={styles.subtitle}>Статистика Google Ads за выбранный период</p>
       </header>
+      <Breadcrumb
+        className={hierarchyStyles.breadcrumb}
+        items={[
+          {
+            title: (
+              <button
+                className={hierarchyStyles.breadcrumbLink}
+                type="button"
+                onClick={() =>
+                  navigate({
+                    pathname: appRoutes.campaigns,
+                    search: entityNavigationSearch(location.search, {}, [
+                      'campaign_id',
+                      'ad_group_id',
+                      'ad_id',
+                      'keyword',
+                      'search_term',
+                    ]),
+                  })
+                }
+              >
+                Campaigns
+              </button>
+            ),
+          },
+          {
+            title: (
+              <button
+                className={hierarchyStyles.breadcrumbLink}
+                type="button"
+                onClick={() =>
+                  navigate({
+                    pathname: appRoutes.adGroups,
+                    search: entityNavigationSearch(location.search, {}, [
+                      'ad_group_id',
+                      'ad_id',
+                      'keyword',
+                      'search_term',
+                    ]),
+                  })
+                }
+              >
+                Ad Groups
+              </button>
+            ),
+          },
+          {
+            title: (
+              <button
+                className={hierarchyStyles.breadcrumbLink}
+                type="button"
+                onClick={() =>
+                  navigate({
+                    pathname: appRoutes.ads,
+                    search: entityNavigationSearch(location.search, {}, [
+                      'ad_id',
+                      'keyword',
+                      'search_term',
+                    ]),
+                  })
+                }
+              >
+                Ads
+              </button>
+            ),
+          },
+          ...(kind === 'search-terms'
+            ? [
+                {
+                  title: (
+                    <button
+                      className={hierarchyStyles.breadcrumbLink}
+                      type="button"
+                      onClick={() =>
+                        navigate({
+                          pathname: appRoutes.keywords,
+                          search: entityNavigationSearch(location.search, {}, [
+                            'keyword',
+                            'search_term',
+                          ]),
+                        })
+                      }
+                    >
+                      Keywords
+                    </button>
+                  ),
+                },
+              ]
+            : []),
+          { title },
+        ]}
+      />
       <Card className={styles.card} variant="outlined">
         <div className={styles.toolbar}>{filterBar}</div>
         {kind === 'keywords' ? (
@@ -269,6 +462,14 @@ export function GoogleAdsEntitiesPage({ kind }: { kind: PageKind }) {
             columns={allColumns as TableColumnsType<GoogleAdsKeyword>}
             filters={filters}
             visibleKeys={preferences.visibleKeys}
+            onRowClick={(row) =>
+              navigate({
+                pathname: appRoutes.searchTerms,
+                search: entityNavigationSearch(location.search, { keyword: row.keyword_id }, [
+                  'search_term',
+                ]),
+              })
+            }
           />
         ) : (
           <EntityTable

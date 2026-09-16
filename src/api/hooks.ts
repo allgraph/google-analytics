@@ -40,6 +40,7 @@ import type {
   GoogleAdsAd,
   GoogleAdsKeyword,
   GoogleAdsSearchTerm,
+  GoogleAdsBreakdownRow,
   GoogleAdsSyncError,
   GoogleAdsSyncHistoryQuery,
   GoogleAdsSyncJob,
@@ -159,6 +160,27 @@ export function useAnalyticsBreakdownQuery(
         { signal },
       )
       return mapDataEnvelope(envelope, normalizeAnalyticsBreakdown)
+    },
+    ...options,
+  })
+}
+
+export function useAnalyticsBreakdownListQuery<T extends GoogleAdsBreakdownRow>(
+  params: AnalyticsBreakdownQuery,
+  options: ApiQueryOptions = {},
+): UseQueryResult<ListEnvelope<T>, ApiError> {
+  return useQuery({
+    queryKey: queryKeys.list(serverEntities.analyticsBreakdown, params, normalizedPage(params)),
+    queryFn: async ({ signal }) => {
+      const envelope = await apiRequest<DataEnvelope<AnalyticsBreakdownDto>>(
+        withApiQuery(apiRoutes.analytics.breakdown, params),
+        { signal },
+      )
+      const normalized = normalizeAnalyticsBreakdown(envelope.data)
+      return {
+        data: normalized.rows as T[],
+        meta: normalized.pagination,
+      }
     },
     ...options,
   })

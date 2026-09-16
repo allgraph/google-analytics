@@ -240,12 +240,16 @@ export type AnalyticsMetricTotal = AdvertisingMetrics
 export interface AnalyticsOverviewDto {
   from: IsoDate
   to: IsoDate
-  data_source: DataSource
+  data_source?: DataSource
   rows: AnalyticsOverviewRowDto[]
-  totals: AnalyticsMetricTotalDto[]
+  totals?: AnalyticsMetricTotalDto[]
 }
 
-export interface AnalyticsOverview extends Omit<AnalyticsOverviewDto, 'rows' | 'totals'> {
+export interface AnalyticsOverview extends Omit<
+  AnalyticsOverviewDto,
+  'rows' | 'totals' | 'data_source'
+> {
+  data_source: DataSource
   rows: AnalyticsOverviewRow[]
   totals: AnalyticsMetricTotal[]
 }

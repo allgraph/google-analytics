@@ -100,12 +100,13 @@ describe('local Google Ads fixtures', () => {
     )
     const overview = (await overviewResponse.json()) as BackendDataEnvelope<AnalyticsOverviewDto>
     expect(overview.data.rows).toHaveLength(10)
-    expect(overview.data.totals).toHaveLength(2)
+    const overviewTotals = overview.data.totals ?? []
+    expect(overviewTotals).toHaveLength(2)
     expect(overview.data.data_source).toBe('demo')
-    expect(new Set(overview.data.totals.map((total) => total.currency_code))).toEqual(
+    expect(new Set(overviewTotals.map((total) => total.currency_code))).toEqual(
       new Set(['EUR', 'CHF']),
     )
-    for (const total of overview.data.totals) {
+    for (const total of overviewTotals) {
       expect(total.spend_minor).toBe(
         overview.data.rows
           .filter((row) => row.metrics.currency_code === total.currency_code)

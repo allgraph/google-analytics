@@ -14,6 +14,8 @@ export interface FilterDefinition {
   options: { value: string; label: string }[]
   /** Подпись значения «все» — у периода это «30 дней». */
   allLabel?: string
+  /** Фильтры, которые нужно сбросить при смене этого значения. */
+  clearOnChange?: string[]
   /** Фильтр показан, но бэкендом не обеспечен: ключ заглушки из реестра. */
   pending?: PendingId
 }
@@ -95,7 +97,16 @@ export function FilterBar({ filters, base, more = [], search, actions }: FilterB
       {chips.length > 0 ? (
         <div className={styles.chips}>
           {chips.map((chip) => (
-            <Tag key={chip.key} closable onClose={() => filters.setFilter(chip.key, null)}>
+            <Tag
+              key={chip.key}
+              closable
+              onClose={() =>
+                filters.setFilters({
+                  ...Object.fromEntries(chip.clearOnChange.map((item) => [item, null])),
+                  [chip.key]: null,
+                })
+              }
+            >
               {chip.label}
             </Tag>
           ))}
@@ -162,7 +173,11 @@ function FilterButton({ filter, filters }: { filter: FilterDefinition; filters: 
       menu={{
         items,
         selectedKeys: current ? [current] : [''],
-        onClick: ({ key }) => filters.setFilter(filter.key, key || null),
+        onClick: ({ key }) =>
+          filters.setFilters({
+            ...Object.fromEntries((filter.clearOnChange ?? []).map((item) => [item, null])),
+            [filter.key]: key || null,
+          }),
       }}
     >
       {button}
@@ -173,12 +188,16 @@ function FilterButton({ filter, filters }: { filter: FilterDefinition; filters: 
 function collectChips(
   filters: UrlFiltersApi,
   definitions: FilterDefinition[],
-): { key: string; label: string }[] {
+): { key: string; label: string; clearOnChange: string[] }[] {
   return definitions
     .filter((definition) => filters.filters[definition.key])
     .map((definition) => {
       const value = filters.filters[definition.key]
       const label = definition.options.find((option) => option.value === value)?.label ?? value
-      return { key: definition.key, label: `${definition.label}: ${label}` }
+      return {
+        key: definition.key,
+        label: `${definition.label}: ${label}`,
+        clearOnChange: definition.clearOnChange ?? [],
+      }
     })
 }

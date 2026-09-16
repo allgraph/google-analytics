@@ -29,6 +29,8 @@ interface DataTableProps<T> {
   selectedKeys?: Key[]
   onSelectedKeysChange?: (keys: Key[]) => void
   emptyText?: string
+  /** Переход в следующий уровень иерархии по клику или Enter. */
+  onRowClick?: (record: T) => void
 }
 
 /**
@@ -45,6 +47,7 @@ export function DataTable<T extends object>({
   selectedKeys = [],
   onSelectedKeysChange,
   emptyText = 'По заданным условиям записей нет',
+  onRowClick,
 }: DataTableProps<T>) {
   if (query.isPending)
     return (
@@ -98,6 +101,19 @@ export function DataTable<T extends object>({
         // Первый клик по колонке даёт `order=desc` — так зафиксировано в docs/api-contract.md.
         sortDirections={['descend', 'ascend']}
         locale={{ emptyText: <Empty description={emptyText} /> }}
+        onRow={
+          onRowClick
+            ? (record) => ({
+                className: styles.clickableRow,
+                role: 'link',
+                tabIndex: 0,
+                onClick: () => onRowClick(record),
+                onKeyDown: (event) => {
+                  if (event.key === 'Enter') onRowClick(record)
+                },
+              })
+            : undefined
+        }
         rowSelection={
           bulkActions
             ? {

@@ -25,6 +25,7 @@ import {
   Unplug,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   useAdsAccountsQuery,
   useCheckGoogleAdsConnectionMutation,
@@ -46,6 +47,7 @@ import {
   normalizeGoogleAdsCustomerId,
   summarizeGoogleAdsAccounts,
 } from '../lib/googleAdsAccounts'
+import { appRoutes } from '../routing/routes'
 import { apiConfig } from '../services/api'
 import pageStyles from './Page.module.css'
 import styles from './GoogleAdsAccountsPage.module.css'
@@ -106,6 +108,7 @@ function localOAuthCallbackPath(authorizationUrl: string): string | null {
 
 export function GoogleAdsAccountsPage() {
   const { message, modal } = AntdApp.useApp()
+  const navigate = useNavigate()
   const [form] = Form.useForm<AccountFormValues>()
   const [addOpen, setAddOpen] = useState(false)
   const [oauthPickerOpen, setOauthPickerOpen] = useState(false)
@@ -462,6 +465,21 @@ export function GoogleAdsAccountsPage() {
               }}
               pagination={false}
               rowKey="id"
+              onRow={(account) => ({
+                className: styles.clickableRow,
+                role: 'link',
+                tabIndex: 0,
+                onClick: (event) => {
+                  if ((event.target as HTMLElement).closest('button, a, input, [role="menu"]'))
+                    return
+                  navigate(`${appRoutes.campaigns}?ads_account_id=${account.id}`)
+                },
+                onKeyDown: (event) => {
+                  if (event.key === 'Enter') {
+                    navigate(`${appRoutes.campaigns}?ads_account_id=${account.id}`)
+                  }
+                },
+              })}
               scroll={{ x: 1685 }}
             />
           </div>
@@ -478,7 +496,13 @@ export function GoogleAdsAccountsPage() {
             {accounts.map((account) => (
               <Card key={account.id} className={styles.accountCard}>
                 <div className={styles.cardTitle}>
-                  <strong>{account.name}</strong>
+                  <Button
+                    type="link"
+                    className={styles.accountLink}
+                    onClick={() => navigate(`${appRoutes.campaigns}?ads_account_id=${account.id}`)}
+                  >
+                    {account.name}
+                  </Button>
                   <StatusTag
                     dictionary={googleAdsConnectionStatuses}
                     code={account.connection_status}

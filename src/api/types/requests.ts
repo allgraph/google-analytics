@@ -42,7 +42,9 @@ export interface AnalyticsFilters {
   ad_id?: string
   device?: string
   country?: string
+  region?: string
   city?: string
+  geo_id?: string
   match_type?: GoogleAdsMatchType
   status?: string
 }
@@ -83,4 +85,6 @@ export interface AnalyticsExportRequest extends AnalyticsFilters {
   format: ExportFormat
   group_by?: BreakdownGroup
   columns?: readonly string[]
+  sort?: string
+  order?: SortOrder
 }

@@ -54,9 +54,11 @@ export function hierarchyNavigationSearch(
   {
     campaignId,
     adGroupId,
+    adId,
   }: {
     campaignId?: string | null
     adGroupId?: string | null
+    adId?: string | null
   },
 ): string {
   const params = new URLSearchParams(currentSearch)
@@ -70,7 +72,9 @@ export function hierarchyNavigationSearch(
   if (adGroupId === null) params.delete('ad_group_id')
   else if (adGroupId !== undefined) params.set('ad_group_id', adGroupId)
 
-  params.delete('ad_id')
+  if (adId === null) params.delete('ad_id')
+  else if (adId !== undefined) params.set('ad_id', adId)
+  else params.delete('ad_id')
   const query = params.toString()
   return query ? `?${query}` : ''
 }

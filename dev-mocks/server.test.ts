@@ -224,6 +224,15 @@ describe('local Google Ads fixtures', () => {
 
     const csv = await fetch(`${base}/api/v1/analytics/export?format=csv`, { headers })
     expect(csv.headers.get('content-type')).toContain('text/csv')
+    const filteredCsv = await fetch(
+      `${base}/api/v1/analytics/export?format=csv&group_by=search_term&ads_account_ids=00000000-0000-4010-8000-000000000001&campaign_id=1001&ad_group_id=10011&ad_id=100111&keyword=1001181&status=enabled&sort=clicks&order=desc&columns=search_term,account,clicks`,
+      { headers },
+    )
+    const filteredCsvText = await filteredCsv.text()
+    expect(filteredCsvText.split('\n')[0]).toBe('search_term,account,clicks')
+    expect(filteredCsvText).toContain('local search query 1')
+    expect(filteredCsvText).toContain('LOCAL MOCK Account 01')
+    expect(filteredCsvText).not.toContain('LOCAL MOCK Account 02')
     const xlsx = await fetch(`${base}/api/v1/analytics/export?format=xlsx`, { headers })
     expect(xlsx.headers.get('content-type')).toContain('spreadsheetml')
     const workbook = Buffer.from(await xlsx.arrayBuffer())

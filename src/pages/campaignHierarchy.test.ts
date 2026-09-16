@@ -36,4 +36,17 @@ describe('Google Ads hierarchy URL', () => {
     expect(params.has('ad_group_id')).toBe(false)
     expect(params.has('ad_id')).toBe(false)
   })
+
+  it('adds the selected ad while preserving multi-account and custom-period context', () => {
+    const search = hierarchyNavigationSearch(
+      '?period=custom&from=2026-08-01&to=2026-09-15&ads_account_ids=one%2Ctwo',
+      { campaignId: 'campaign-7', adGroupId: 'group-3', adId: 'ad-2' },
+    )
+    const params = new URLSearchParams(search)
+
+    expect(params.get('from')).toBe('2026-08-01')
+    expect(params.get('to')).toBe('2026-09-15')
+    expect(params.get('ads_account_ids')).toBe('one,two')
+    expect(params.get('ad_id')).toBe('ad-2')
+  })
 })

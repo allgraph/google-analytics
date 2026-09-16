@@ -1,0 +1,189 @@
+.insights {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel,
+.chartsSection {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: white;
+  box-shadow: var(--shadow-card);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.sectionHeader h2,
+.chartCard h3 {
+  margin: 0;
+  color: var(--color-heading);
+  font-weight: 600;
+}
+
+.sectionHeader h2 {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.sectionHeader p {
+  margin: 2px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.table :global(.ant-table) {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.table :global(.ant-table-container) {
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+}
+
+.table :global(.ant-table-thead > tr > th) {
+  background: var(--color-subtle);
+  color: var(--color-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.table :global(.ant-table-summary) {
+  background: #f8fafc;
+}
+
+.table :global(.ant-table-summary td) {
+  border-top: 1px solid var(--color-border);
+  color: var(--color-heading);
+}
+
+.currencyTotals {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.queryState {
+  display: flex;
+  min-height: 180px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+}
+
+.chartGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chartCard {
+  min-width: 0;
+  min-height: 286px;
+  padding: 13px 14px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: white;
+}
+
+.chartCard h3 {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.chartLegend {
+  display: flex;
+  min-height: 38px;
+  align-content: flex-start;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  padding-top: 6px;
+  overflow: hidden;
+}
+
+.chartLegend span {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 210px;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--color-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chartLegend i {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: #e7ebf2;
+  stroke-width: 1;
+}
+
+.axisLabel {
+  fill: var(--color-muted);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 980px) {
+  .chartGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 639px) {
+  .panel,
+  .chartsSection {
+    padding: 12px;
+  }
+
+  .sectionHeader {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sectionHeader :global(.ant-segmented) {
+    width: 100%;
+  }
+
+  .sectionHeader :global(.ant-segmented-item) {
+    flex: 1;
+    font-size: 12px;
+  }
+
+  .chartCard {
+    min-height: 250px;
+    padding-inline: 10px;
+  }
+}

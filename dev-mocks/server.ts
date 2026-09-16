@@ -53,8 +53,8 @@ function selectedAccountIds(url: URL, db: MockDatabase): string[] {
   return one ? [one] : many?.length ? many : db.accounts.map((account) => account.id)
 }
 
-function dateRange(url: URL): { from: string; to: string } {
-  const today = new Date().toISOString().slice(0, 10)
+function dateRange(url: URL, db: MockDatabase): { from: string; to: string } {
+  const today = db.dailyMetrics.at(-1)?.date ?? new Date().toISOString().slice(0, 10)
   const from = url.searchParams.get('from') ?? today
   const to = url.searchParams.get('to') ?? today
   return { from, to }
@@ -65,7 +65,7 @@ function metricsFor(
   db: MockDatabase,
   accountIds = selectedAccountIds(url, db),
 ): MockMetrics {
-  const { from, to } = dateRange(url)
+  const { from, to } = dateRange(url, db)
   return sumMetrics(
     db.dailyMetrics.filter(
       (row) => accountIds.includes(row.google_ads_account_id) && row.date >= from && row.date <= to,
@@ -85,14 +85,25 @@ function listResponse<T>(items: T[], url: URL): MockResponse {
   const offset = Math.max(0, Number(url.searchParams.get('offset') ?? 0))
   const sort = url.searchParams.get('sort')
   const direction = url.searchParams.get('order') === 'asc' ? 1 : -1
+  const metricSortAliases: Record<string, string> = {
+    spend: 'spend_minor',
+    average_cpc: 'average_cpc_minor',
+    cpa: 'cpa_minor',
+    conversion_value: 'conversion_value_minor',
+  }
   const sorted = sort
     ? [...items].sort((left, right) => {
         const value = (item: T): unknown => {
           const row = item as Record<string, unknown>
           const metrics = row.metrics as Record<string, unknown> | undefined
-          return row[sort] ?? metrics?.[sort]
+          return row[sort] ?? metrics?.[metricSortAliases[sort] ?? sort]
         }
-        return (Number(value(left) ?? 0) - Number(value(right) ?? 0)) * direction
+        const leftValue = value(left)
+        const rightValue = value(right)
+        if (typeof leftValue === 'string' || typeof rightValue === 'string') {
+          return String(leftValue ?? '').localeCompare(String(rightValue ?? ''), 'ru') * direction
+        }
+        return (Number(leftValue ?? 0) - Number(rightValue ?? 0)) * direction
       })
     : items
   return {
@@ -230,7 +241,7 @@ function scaleMetrics(metrics: MockMetrics, weight: number): MockMetrics {
 }
 
 function overview(url: URL, db: MockDatabase): MockResponse {
-  const { from, to } = dateRange(url)
+  const { from, to } = dateRange(url, db)
   const ids = selectedAccountIds(url, db)
   const rows = db.accounts
     .filter((account) => ids.includes(account.id))
@@ -252,7 +263,7 @@ function overview(url: URL, db: MockDatabase): MockResponse {
 
 function breakdown(url: URL, db: MockDatabase): MockResponse {
   const groupBy = url.searchParams.get('group_by') ?? 'account'
-  const { from, to } = dateRange(url)
+  const { from, to } = dateRange(url, db)
   let rows: unknown[]
   if (groupBy === 'account') {
     rows = (overview(url, db).body as { data: { rows: unknown[] } }).data.rows
@@ -705,8 +716,8 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
                       ? db.dailyMetrics.filter(
                           (row) =>
                             row.google_ads_account_id === account.id &&
-                            row.date >= dateRange(url).from &&
-                            row.date <= dateRange(url).to,
+                            row.date >= dateRange(url, db).from &&
+                            row.date <= dateRange(url, db).to,
                         )
                       : resource === 'geo'
                         ? dimensionRows('geography', url, db)

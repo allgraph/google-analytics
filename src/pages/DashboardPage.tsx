@@ -2,7 +2,9 @@ import { Alert, Button, Card, Empty, Input, Popover, Skeleton } from 'antd'
 import { CalendarDays, ChevronDown, RefreshCw, UsersRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { useAdsAccountsQuery, useAnalyticsOverviewQuery } from '../api/hooks'
+import { queryKeys, serverEntities } from '../api/queryKeys'
 import type { AnalyticsMetricTotal, GoogleAdsAccount } from '../api/types'
 import { ApiErrorState } from '../components/ApiErrorState'
 import {
@@ -16,6 +18,7 @@ import { periodLabels, type PeriodPreset } from '../lib/period'
 import { appRoutes } from '../routing/routes'
 import pageStyles from './Page.module.css'
 import styles from './DashboardPage.module.css'
+import { DashboardInsights } from './DashboardInsights'
 import {
   dashboardOverviewQuery,
   dashboardPeriodPresets,
@@ -256,6 +259,7 @@ function daysInRange(from: unknown, to: unknown) {
 
 export function DashboardPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [period, setPeriod] = useState<PeriodPreset>('last30')
   const [customRange, setCustomRange] = useState<CustomPeriodRange>(initialCustomRange)
   const [accountSelection, setAccountSelection] = useState<string[] | null>(null)
@@ -268,6 +272,13 @@ export function DashboardPage() {
     return accountSelection.filter((accountId) => available.has(accountId))
   }, [accountSelection, accounts])
   const allAccountsSelected = accounts.length > 0 && selectedAccountIds.length === accounts.length
+  const selectedAccounts = useMemo(
+    () => accounts.filter((account) => selectedAccountIds.includes(account.id)),
+    [accounts, selectedAccountIds],
+  )
+  const breakdownFetches = useIsFetching({
+    queryKey: queryKeys.entity(serverEntities.analyticsBreakdown),
+  })
 
   const overviewParams = useMemo(
     () =>
@@ -421,10 +432,13 @@ export function DashboardPage() {
         <Button
           type="primary"
           icon={<RefreshCw size={15} />}
-          loading={accountsQuery.isFetching || overviewQuery.isFetching}
+          loading={accountsQuery.isFetching || overviewQuery.isFetching || breakdownFetches > 0}
           onClick={() => {
             void accountsQuery.refetch()
             if (overviewParams && selectedAccountIds.length) void overviewQuery.refetch()
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.entity(serverEntities.analyticsBreakdown),
+            })
           }}
         >
           Обновить
@@ -452,6 +466,10 @@ export function DashboardPage() {
       <section className={styles.kpiSection} aria-label="Ключевые показатели">
         {kpiContent()}
       </section>
+
+      {overviewParams && overviewQuery.isSuccess && totals.length > 0 ? (
+        <DashboardInsights query={overviewParams} accounts={selectedAccounts} totals={totals} />
+      ) : null}
     </div>
   )
 }

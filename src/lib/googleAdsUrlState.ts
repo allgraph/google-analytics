@@ -1,9 +1,4 @@
-import type {
-  AnalyticsBreakdownQuery,
-  AnalyticsExportRequest,
-  BreakdownGroup,
-  ExportFormat,
-} from '../api/types'
+import type { AnalyticsExportRequest, BreakdownGroup, ExportFormat } from '../api/types'
 import type { UrlFiltersApi } from './useUrlFilters'
 
 export const NO_ACCOUNTS = 'none'
@@ -41,13 +36,6 @@ function apiFilters(filters: UrlFiltersApi) {
       ? { ads_account_ids: rawAccountIds.split(',').filter(Boolean) }
       : {}),
   }
-}
-
-export function breakdownQueryFromUrl(
-  filters: UrlFiltersApi,
-  groupBy: BreakdownGroup,
-): AnalyticsBreakdownQuery {
-  return { ...apiFilters(filters), group_by: groupBy } as AnalyticsBreakdownQuery
 }
 
 export function exportRequestFromUrl(

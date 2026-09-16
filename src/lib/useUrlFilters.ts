@@ -27,6 +27,7 @@ export interface ListQueryState {
 
 export interface UrlFiltersApi extends ListQueryState {
   setFilter: (key: string, value: string | null) => void
+  setFilters: (changes: Record<string, string | null>) => void
   setPeriod: (preset: PeriodPreset) => void
   setPage: (page: number) => void
   setPerPage: (perPage: number) => void
@@ -88,6 +89,11 @@ export function useUrlFilters(): UrlFiltersApi {
     [update],
   )
 
+  const setFilters = useCallback(
+    (changes: Record<string, string | null>) => update(changes),
+    [update],
+  )
+
   const setPeriod = useCallback((preset: PeriodPreset) => update({ period: preset }), [update])
 
   const setPage = useCallback(
@@ -124,5 +130,15 @@ export function useUrlFilters(): UrlFiltersApi {
     }
   }, [state])
 
-  return { ...state, setFilter, setPeriod, setPage, setPerPage, setSort, reset, toQueryParams }
+  return {
+    ...state,
+    setFilter,
+    setFilters,
+    setPeriod,
+    setPage,
+    setPerPage,
+    setSort,
+    reset,
+    toQueryParams,
+  }
 }

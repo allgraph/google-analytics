@@ -32,6 +32,13 @@ const PendingRegistryPage = lazy(() =>
     default: PendingRegistryPage,
   })),
 )
+const CampaignsPage = lazy(() =>
+  import('./pages/CampaignsPage').then(({ CampaignsPage }) => ({ default: CampaignsPage })),
+)
+const AdGroupsPage = lazy(() =>
+  import('./pages/AdGroupsPage').then(({ AdGroupsPage }) => ({ default: AdGroupsPage })),
+)
+const AdsPage = lazy(() => import('./pages/AdsPage').then(({ AdsPage }) => ({ default: AdsPage })))
 const KeywordsPage = lazy(() =>
   import('./pages/KeywordsPage').then(({ KeywordsPage }) => ({ default: KeywordsPage })),
 )
@@ -49,9 +56,6 @@ function AuthorizedIndex() {
 }
 
 const placeholderRoutes: ReadonlyArray<{ section: Section; path: string; title: string }> = [
-  { section: 'campaigns', path: appRoutes.campaigns, title: 'Campaigns' },
-  { section: 'adGroups', path: appRoutes.adGroups, title: 'Ad Groups' },
-  { section: 'ads', path: appRoutes.ads, title: 'Ads' },
   { section: 'geography', path: appRoutes.geography, title: 'Geography' },
   { section: 'devices', path: appRoutes.devices, title: 'Devices' },
   { section: 'syncStatus', path: appRoutes.syncStatus, title: 'Sync / System Status' },
@@ -81,6 +85,36 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <GoogleAdsAccountsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="campaigns" />}>
+              <Route
+                path={appRoutes.campaigns}
+                element={
+                  <LazyRoute>
+                    <CampaignsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="adGroups" />}>
+              <Route
+                path={appRoutes.adGroups}
+                element={
+                  <LazyRoute>
+                    <AdGroupsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="ads" />}>
+              <Route
+                path={appRoutes.ads}
+                element={
+                  <LazyRoute>
+                    <AdsPage />
                   </LazyRoute>
                 }
               />

@@ -287,3 +287,20 @@
     display: none;
   }
 }
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover td,
+.clickableRow:focus-visible td {
+  background: var(--color-primaryBackground) !important;
+}
+
+.accountLink.accountLink {
+  height: auto;
+  padding: 0;
+  color: var(--color-heading);
+  font-weight: 600;
+  text-align: left;
+}

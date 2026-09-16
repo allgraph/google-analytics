@@ -1,0 +1,85 @@
+.titleLine {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.titleLine span {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumb {
+  margin: -6px 0 12px;
+}
+
+.breadcrumbLink {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primaryText);
+  font: inherit;
+  cursor: pointer;
+}
+
+.breadcrumbLink:hover,
+.breadcrumbLink:focus-visible {
+  text-decoration: underline;
+}
+
+.tableHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  gap: 12px;
+}
+
+.tableHeading h2 {
+  margin: 0;
+  color: var(--color-heading);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tableHeading p {
+  margin: 3px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.entityName {
+  color: var(--color-heading);
+  font-weight: 600;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.state {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+@media (max-width: 639px) {
+  .titleLine {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tableHeading p {
+    display: none;
+  }
+}

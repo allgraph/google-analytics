@@ -20,6 +20,12 @@ import type {
   GoogleAdsDimensionDto,
   GoogleAdsEntity,
   GoogleAdsEntityDto,
+  GoogleAdsCampaign,
+  GoogleAdsCampaignDto,
+  GoogleAdsAdGroup,
+  GoogleAdsAdGroupDto,
+  GoogleAdsAd,
+  GoogleAdsAdDto,
   GoogleAdsKeyword,
   GoogleAdsKeywordDto,
   GoogleAdsSearchTerm,
@@ -167,6 +173,18 @@ export function normalizeAdvertisingMetrics(metrics: AdvertisingMetricsDto): Adv
 }
 
 export function normalizeGoogleAdsEntity(entity: GoogleAdsEntityDto): GoogleAdsEntity {
+  return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
+}
+
+export function normalizeGoogleAdsCampaign(entity: GoogleAdsCampaignDto): GoogleAdsCampaign {
+  return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
+}
+
+export function normalizeGoogleAdsAdGroup(entity: GoogleAdsAdGroupDto): GoogleAdsAdGroup {
+  return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
+}
+
+export function normalizeGoogleAdsAd(entity: GoogleAdsAdDto): GoogleAdsAd {
   return { ...entity, metrics: normalizeAdvertisingMetrics(entity.metrics) }
 }
 

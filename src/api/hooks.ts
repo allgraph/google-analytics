@@ -7,6 +7,9 @@ import {
   normalizeAnalyticsOverview,
   normalizeGoogleAdsDimension,
   normalizeGoogleAdsEntity,
+  normalizeGoogleAdsCampaign,
+  normalizeGoogleAdsAdGroup,
+  normalizeGoogleAdsAd,
   normalizeGoogleAdsKeyword,
   normalizeGoogleAdsSearchTerm,
   withApiQuery,
@@ -32,6 +35,9 @@ import type {
   GoogleAdsEntitiesQuery,
   GoogleAdsEntity,
   GoogleAdsEntityDto,
+  GoogleAdsCampaign,
+  GoogleAdsAdGroup,
+  GoogleAdsAd,
   GoogleAdsKeyword,
   GoogleAdsSearchTerm,
   GoogleAdsSyncError,
@@ -226,6 +232,45 @@ function useTypedGoogleAdsEntitiesQuery<TDto extends GoogleAdsEntityDto, T exten
     },
     ...options,
   })
+}
+
+export function useGoogleAdsCampaignsQuery(
+  accountId: EntityId,
+  params: Omit<GoogleAdsEntitiesQuery, 'entity'>,
+  options: ApiQueryOptions = {},
+): UseQueryResult<ListEnvelope<GoogleAdsCampaign>, ApiError> {
+  return useTypedGoogleAdsEntitiesQuery(
+    accountId,
+    { ...params, entity: 'campaigns' },
+    normalizeGoogleAdsCampaign,
+    options,
+  )
+}
+
+export function useGoogleAdsAdGroupsQuery(
+  accountId: EntityId,
+  params: Omit<GoogleAdsEntitiesQuery, 'entity'>,
+  options: ApiQueryOptions = {},
+): UseQueryResult<ListEnvelope<GoogleAdsAdGroup>, ApiError> {
+  return useTypedGoogleAdsEntitiesQuery(
+    accountId,
+    { ...params, entity: 'ad-groups' },
+    normalizeGoogleAdsAdGroup,
+    options,
+  )
+}
+
+export function useGoogleAdsAdsQuery(
+  accountId: EntityId,
+  params: Omit<GoogleAdsEntitiesQuery, 'entity'>,
+  options: ApiQueryOptions = {},
+): UseQueryResult<ListEnvelope<GoogleAdsAd>, ApiError> {
+  return useTypedGoogleAdsEntitiesQuery(
+    accountId,
+    { ...params, entity: 'ads' },
+    normalizeGoogleAdsAd,
+    options,
+  )
 }
 
 export function useGoogleAdsKeywordsQuery(

@@ -1,4 +1,4 @@
-import { useQuery, type QueryKey, type UseQueryResult } from '@tanstack/react-query'
+import { useQueries, useQuery, type QueryKey, type UseQueryResult } from '@tanstack/react-query'
 import { apiRequest, type ApiError } from '../services/api'
 import {
   mapDataEnvelope,
@@ -143,6 +143,7 @@ export function useAnalyticsOverviewQuery(
 
 export function useAnalyticsBreakdownQuery(
   params: AnalyticsBreakdownQuery,
+  options: ApiQueryOptions = {},
 ): UseQueryResult<DataEnvelope<AnalyticsBreakdown>, ApiError> {
   return useQuery({
     queryKey: queryKeys.list(serverEntities.analyticsBreakdown, params, normalizedPage(params)),
@@ -153,7 +154,27 @@ export function useAnalyticsBreakdownQuery(
       )
       return mapDataEnvelope(envelope, normalizeAnalyticsBreakdown)
     },
+    ...options,
   })
+}
+
+export function useAnalyticsBreakdownQueries(
+  paramsList: readonly AnalyticsBreakdownQuery[],
+  options: ApiQueryOptions = {},
+): UseQueryResult<DataEnvelope<AnalyticsBreakdown>, ApiError>[] {
+  return useQueries({
+    queries: paramsList.map((params) => ({
+      queryKey: queryKeys.list(serverEntities.analyticsBreakdown, params, normalizedPage(params)),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const envelope = await apiRequest<DataEnvelope<AnalyticsBreakdownDto>>(
+          withApiQuery(apiRoutes.analytics.breakdown, params),
+          { signal },
+        )
+        return mapDataEnvelope(envelope, normalizeAnalyticsBreakdown)
+      },
+      ...options,
+    })),
+  }) as UseQueryResult<DataEnvelope<AnalyticsBreakdown>, ApiError>[]
 }
 
 export function useGoogleAdsEntitiesQuery(

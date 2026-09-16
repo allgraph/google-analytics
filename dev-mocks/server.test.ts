@@ -148,6 +148,15 @@ describe('local Google Ads fixtures', () => {
     expect(
       new Set(daily.data.rows.map((row) => ('currency_code' in row ? row.currency_code : ''))),
     ).toEqual(new Set(['EUR', 'CHF']))
+
+    const sortedAccounts = (await (
+      await fetch(
+        `${base}/api/v1/analytics/breakdown?group_by=account&from=2026-09-09&to=2026-09-15&sort=spend&order=desc`,
+        { headers },
+      )
+    ).json()) as BackendDataEnvelope<AnalyticsBreakdownDto>
+    const spends = sortedAccounts.data.rows.map((row) => Number(row.metrics.spend_minor))
+    expect(spends).toEqual([...spends].sort((left, right) => right - left))
   })
 
   it('supports the account UI lifecycle and valid export formats', async () => {

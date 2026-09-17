@@ -1,0 +1,82 @@
+.tableHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px 10px;
+}
+
+.tableHeading h2 {
+  margin: 0;
+  color: var(--color-heading);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tableHeading p {
+  margin: 3px 0 0;
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+
+.geoNote {
+  margin: 0 16px 14px;
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 16px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.deviceGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.deviceCard.deviceCard {
+  border-color: var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.deviceTitle {
+  color: var(--color-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.deviceSpend {
+  margin-top: 5px;
+  color: var(--color-heading);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 26px;
+}
+
+.deviceMeta {
+  margin-top: 3px;
+  color: var(--color-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+@media (max-width: 1100px) {
+  .deviceGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .deviceGrid {
+    grid-template-columns: 1fr;
+  }
+}

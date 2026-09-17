@@ -138,6 +138,38 @@ describe('local Google Ads fixtures', () => {
     const devices = (await devicesResponse.json()) as BackendListEnvelope<GoogleAdsDimensionDto>
     expect(devices.data.every((row) => row.device === 'MOBILE')).toBe(true)
 
+    const dimensionBase = `${base}/api/v1/analytics/breakdown?from=2026-09-09&to=2026-09-15&ads_account_ids=${accounts.data[0].id}`
+    const allDevices = (await (
+      await fetch(`${dimensionBase}&group_by=device&limit=100`, { headers })
+    ).json()) as BackendDataEnvelope<AnalyticsBreakdownDto>
+    expect(new Set(allDevices.data.rows.map((row) => ('device' in row ? row.device : '')))).toEqual(
+      new Set(['DESKTOP', 'MOBILE', 'TABLET', 'OTHER']),
+    )
+
+    const campaignDevices = (await (
+      await fetch(`${dimensionBase}&group_by=device&campaign_id=1001&limit=100`, { headers })
+    ).json()) as BackendDataEnvelope<AnalyticsBreakdownDto>
+    const groupDevices = (await (
+      await fetch(`${dimensionBase}&group_by=device&campaign_id=1001&ad_group_id=10011&limit=100`, {
+        headers,
+      })
+    ).json()) as BackendDataEnvelope<AnalyticsBreakdownDto>
+    expect(campaignDevices.data.rows[0].metrics.spend_minor).toBeLessThan(
+      allDevices.data.rows[0].metrics.spend_minor,
+    )
+    expect(groupDevices.data.rows[0].metrics.spend_minor).toBeLessThan(
+      campaignDevices.data.rows[0].metrics.spend_minor,
+    )
+
+    const geography = (await (
+      await fetch(`${dimensionBase}&group_by=geography&limit=100`, { headers })
+    ).json()) as BackendDataEnvelope<AnalyticsBreakdownDto>
+    expect(geography.data.rows.some((row) => 'geo_id' in row && row.geo_id === null)).toBe(true)
+    const berlin = (await (
+      await fetch(`${dimensionBase}&group_by=geography&region=Berlin&limit=100`, { headers })
+    ).json()) as BackendDataEnvelope<AnalyticsBreakdownDto>
+    expect(berlin.data.rows.every((row) => 'region' in row && row.region === 'Berlin')).toBe(true)
+
     const selectedIds = [accounts.data[0].id, accounts.data[8].id].join(',')
     const daily = (await (
       await fetch(

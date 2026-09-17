@@ -21,7 +21,7 @@ interface DataTableProps<T> {
   columns: TableColumnsType<T>
   query: UseQueryResult<ListEnvelope<T>, ApiError>
   filters: UrlFiltersApi
-  rowKey: keyof T & string
+  rowKey: TableProps<T>['rowKey']
   /** Панель «Выбрано N» появляется, только если действия заданы. */
   bulkActions?: BulkAction[]
   /** Ключ заглушки, если сами массовые действия бэкендом не обеспечены. */
@@ -59,6 +59,7 @@ export function DataTable<T extends object>({
     return (
       <div className={styles.state}>
         <ApiErrorState error={query.error} />
+        <Button onClick={() => void query.refetch()}>Повторить</Button>
       </div>
     )
 

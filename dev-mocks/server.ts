@@ -185,15 +185,78 @@ function entityRows(entities: MockEntity[], url: URL, db: MockDatabase): GoogleA
     })
 }
 
+function hierarchyWeight(url: URL, db: MockDatabase, accountId: string): number | null {
+  const campaignId = url.searchParams.get('campaign_id')
+  const adGroupId = url.searchParams.get('ad_group_id')
+  const adId = url.searchParams.get('ad_id')
+  const keyword = url.searchParams.get('keyword')
+
+  const campaignWeight = (id: string | undefined) =>
+    db.campaigns.find(
+      (campaign) => campaign.google_ads_account_id === accountId && campaign.campaign_id === id,
+    )?.metrics_weight
+  const groupWeight = (id: string | undefined) =>
+    db.adGroups.find(
+      (group) => group.google_ads_account_id === accountId && group.ad_group_id === id,
+    )?.metrics_weight
+
+  if (keyword) {
+    const row = db.keywords.find(
+      (item) =>
+        item.google_ads_account_id === accountId &&
+        (item.keyword_id === keyword || item.name?.includes(keyword)) &&
+        (!campaignId || item.campaign_id === campaignId) &&
+        (!adGroupId || item.ad_group_id === adGroupId) &&
+        (!adId || item.ad_id === adId),
+    )
+    if (!row) return null
+    return (
+      (campaignWeight(row.campaign_id) ?? 1) *
+      (groupWeight(row.ad_group_id) ?? 1) *
+      row.metrics_weight
+    )
+  }
+  if (adId) {
+    const row = db.ads.find(
+      (item) =>
+        item.google_ads_account_id === accountId &&
+        item.ad_id === adId &&
+        (!campaignId || item.campaign_id === campaignId) &&
+        (!adGroupId || item.ad_group_id === adGroupId),
+    )
+    if (!row) return null
+    return (
+      (campaignWeight(row.campaign_id) ?? 1) *
+      (groupWeight(row.ad_group_id) ?? 1) *
+      row.metrics_weight
+    )
+  }
+  if (adGroupId) {
+    const row = db.adGroups.find(
+      (item) =>
+        item.google_ads_account_id === accountId &&
+        item.ad_group_id === adGroupId &&
+        (!campaignId || item.campaign_id === campaignId),
+    )
+    if (!row) return null
+    return (campaignWeight(row.campaign_id) ?? 1) * row.metrics_weight
+  }
+  if (campaignId) {
+    const weight = campaignWeight(campaignId)
+    return weight ?? null
+  }
+  return 1
+}
+
 function dimensionRows(groupBy: string, url: URL, db: MockDatabase): GoogleAdsDimensionDto[] {
   const ids = selectedAccountIds(url, db)
   const definitions: Array<{
     weight: number
     device?: string
     country?: string
-    region?: string
-    city?: string
-    geo_id?: string
+    region?: string | null
+    city?: string | null
+    geo_id?: string | null
   }> =
     groupBy === 'device'
       ? [
@@ -203,15 +266,27 @@ function dimensionRows(groupBy: string, url: URL, db: MockDatabase): GoogleAdsDi
           { device: 'OTHER', weight: 0.02 },
         ]
       : [
-          { country: 'DE', region: 'Berlin', city: 'Berlin', geo_id: '1003854', weight: 0.5 },
-          { country: 'DE', region: 'Bayern', city: 'München', geo_id: '1004434', weight: 0.25 },
-          { country: 'AT', region: 'Wien', city: 'Wien', geo_id: '1000997', weight: 0.15 },
-          { country: 'CH', region: 'Zürich', city: 'Zürich', geo_id: '1003297', weight: 0.1 },
+          { country: 'DE', region: 'Berlin', city: 'Berlin', geo_id: '1003854', weight: 0.45 },
+          { country: 'DE', region: 'Bayern', city: 'München', geo_id: '1004434', weight: 0.3 },
+          { country: 'DE', region: 'Hamburg', city: 'Hamburg', geo_id: '1003855', weight: 0.15 },
+          { country: 'DE', region: null, city: null, geo_id: null, weight: 0.1 },
+          { country: 'AT', region: 'Wien', city: 'Wien', geo_id: '1000997', weight: 0.75 },
+          { country: 'AT', region: 'Steiermark', city: 'Graz', geo_id: '1000992', weight: 0.25 },
+          { country: 'CH', region: 'Zürich', city: 'Zürich', geo_id: '1003297', weight: 0.75 },
+          { country: 'CH', region: 'Bern', city: 'Bern', geo_id: '1002960', weight: 0.25 },
         ]
   return db.accounts
     .filter((account) => ids.includes(account.id))
-    .flatMap((account) =>
-      definitions
+    .flatMap((account) => {
+      const scopeWeight = hierarchyWeight(url, db, account.id)
+      if (scopeWeight === null) return []
+      return definitions
+        .filter(
+          (definition) =>
+            groupBy === 'device' ||
+            !definition.country ||
+            definition.country === account.country_code,
+        )
         .filter(
           (definition) =>
             !url.searchParams.get('device') || definition.device === url.searchParams.get('device'),
@@ -225,17 +300,25 @@ function dimensionRows(groupBy: string, url: URL, db: MockDatabase): GoogleAdsDi
           (definition) =>
             !url.searchParams.get('city') || definition.city === url.searchParams.get('city'),
         )
+        .filter(
+          (definition) =>
+            !url.searchParams.get('region') || definition.region === url.searchParams.get('region'),
+        )
+        .filter(
+          (definition) =>
+            !url.searchParams.get('geo_id') || definition.geo_id === url.searchParams.get('geo_id'),
+        )
         .map(({ weight, ...definition }) => {
           const total = metricsFor(url, db, [account.id])
-          const scaled = scaleMetrics(total, weight)
+          const scaled = scaleMetrics(total, weight * scopeWeight)
           return {
             google_ads_account_id: account.id,
             ...definition,
             metrics: metricsWithCurrency(scaled, account.currency_code),
             data_source: 'demo',
           }
-        }),
-    )
+        })
+    })
 }
 
 /** Keep scaled entity fixtures inside the wire contract: minor units and click counts are integers. */

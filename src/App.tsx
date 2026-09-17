@@ -45,6 +45,14 @@ const KeywordsPage = lazy(() =>
 const SearchTermsPage = lazy(() =>
   import('./pages/SearchTermsPage').then(({ SearchTermsPage }) => ({ default: SearchTermsPage })),
 )
+const GeographyPage = lazy(() =>
+  import('./pages/GoogleAdsDimensionsPage').then(({ GeographyPage }) => ({
+    default: GeographyPage,
+  })),
+)
+const DevicesPage = lazy(() =>
+  import('./pages/GoogleAdsDimensionsPage').then(({ DevicesPage }) => ({ default: DevicesPage })),
+)
 
 function LazyRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -56,8 +64,6 @@ function AuthorizedIndex() {
 }
 
 const placeholderRoutes: ReadonlyArray<{ section: Section; path: string; title: string }> = [
-  { section: 'geography', path: appRoutes.geography, title: 'Geography' },
-  { section: 'devices', path: appRoutes.devices, title: 'Devices' },
   { section: 'syncStatus', path: appRoutes.syncStatus, title: 'Sync / System Status' },
   { section: 'settings', path: appRoutes.settings, title: 'Settings' },
 ]
@@ -147,6 +153,26 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <SearchTermsPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="geography" />}>
+              <Route
+                path={appRoutes.geography}
+                element={
+                  <LazyRoute>
+                    <GeographyPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="devices" />}>
+              <Route
+                path={appRoutes.devices}
+                element={
+                  <LazyRoute>
+                    <DevicesPage />
                   </LazyRoute>
                 }
               />

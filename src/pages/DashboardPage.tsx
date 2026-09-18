@@ -1,5 +1,5 @@
-import { Alert, Button, Card, Empty, Input, Popover, Skeleton } from 'antd'
-import { CalendarDays, ChevronDown, RefreshCw } from 'lucide-react'
+import { Alert, Button, Card, Empty, Input, Popover, Skeleton, Tooltip } from 'antd'
+import { CalendarDays, ChevronDown, CircleHelp, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
@@ -48,34 +48,61 @@ interface KpiValue {
   value: string
 }
 
-function KpiCard({ label, value, values }: { label: string; value?: string; values?: KpiValue[] }) {
-  if (values?.length === 1) {
-    return (
-      <div className={styles.kpiCard}>
-        <span className={styles.kpiLabel}>{label}</span>
-        <strong className={styles.kpiValue}>{values[0].value}</strong>
-      </div>
+const kpiDescriptions = {
+  spend: 'Сумма, потраченная на рекламу за выбранный период.',
+  impressions: 'Количество показов объявлений пользователям.',
+  clicks: 'Количество кликов пользователей по объявлениям.',
+  ctr: 'CTR (Click-Through Rate) — доля показов, завершившихся кликом: клики ÷ показы × 100%.',
+  averageCpc: 'Средний CPC (Cost Per Click) — средняя стоимость клика: расход ÷ клики.',
+  conversions: 'Количество целевых действий, полученных после взаимодействия с рекламой.',
+  conversionRate:
+    'Conversion Rate — доля кликов, завершившихся конверсией: конверсии ÷ клики × 100%.',
+  cpa: 'CPA (Cost Per Action) — средняя стоимость одной конверсии: расход ÷ конверсии.',
+  conversionValue: 'Суммарная ценность конверсий, переданная в Google Ads.',
+  roas: 'ROAS (Return on Ad Spend) — окупаемость рекламы: ценность конверсий ÷ расход. Например, 5× означает 5 единиц ценности на 1 единицу расхода.',
+} as const
+
+function KpiCard({
+  label,
+  description,
+  value,
+  values,
+}: {
+  label: string
+  description: string
+  value?: string
+  values?: KpiValue[]
+}) {
+  const content =
+    values?.length === 1 ? (
+      <strong className={styles.kpiValue}>{values[0].value}</strong>
+    ) : values ? (
+      values.length ? (
+        <div className={styles.currencyValues}>
+          {values.map((item) => (
+            <strong key={item.currency} className={styles.currencyValue}>
+              {item.value}
+            </strong>
+          ))}
+        </div>
+      ) : (
+        <strong className={styles.kpiValue}>{EMPTY_VALUE}</strong>
+      )
+    ) : (
+      <strong className={styles.kpiValue}>{value ?? EMPTY_VALUE}</strong>
     )
-  }
 
   return (
     <div className={styles.kpiCard}>
-      <span className={styles.kpiLabel}>{label}</span>
-      {values ? (
-        values.length ? (
-          <div className={styles.currencyValues}>
-            {values.map((item) => (
-              <strong key={item.currency} className={styles.currencyValue}>
-                {item.value}
-              </strong>
-            ))}
-          </div>
-        ) : (
-          <strong className={styles.kpiValue}>{EMPTY_VALUE}</strong>
-        )
-      ) : (
-        <strong className={styles.kpiValue}>{value ?? EMPTY_VALUE}</strong>
-      )}
+      <div className={styles.kpiHeading}>
+        <span className={styles.kpiLabel}>{label}</span>
+        <Tooltip title={description} trigger={['hover', 'click']}>
+          <button type="button" className={styles.kpiHelp} aria-label={`Что означает «${label}»`}>
+            <CircleHelp size={14} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
+      {content}
     </div>
   )
 }
@@ -303,35 +330,60 @@ export function DashboardPage() {
         <div className={styles.kpiGrid}>
           <KpiCard
             label="Расход"
+            description={kpiDescriptions.spend}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoneyCompact(total.spend),
             )}
           />
-          <KpiCard label="Показы" value={formatNumber(summary.impressions)} />
-          <KpiCard label="Клики" value={formatNumber(summary.clicks)} />
-          <KpiCard label="CTR" value={formatPercent(summary.ctr)} />
+          <KpiCard
+            label="Показы"
+            description={kpiDescriptions.impressions}
+            value={formatNumber(summary.impressions)}
+          />
+          <KpiCard
+            label="Клики"
+            description={kpiDescriptions.clicks}
+            value={formatNumber(summary.clicks)}
+          />
+          <KpiCard
+            label="CTR"
+            description={kpiDescriptions.ctr}
+            value={formatPercent(summary.ctr)}
+          />
           <KpiCard
             label="Средний CPC"
+            description={kpiDescriptions.averageCpc}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoney(total.average_cpc),
             )}
           />
-          <KpiCard label="Конверсии" value={formatNumber(summary.conversions)} />
-          <KpiCard label="Conversion Rate" value={formatPercent(summary.conversionRate)} />
+          <KpiCard
+            label="Конверсии"
+            description={kpiDescriptions.conversions}
+            value={formatNumber(summary.conversions)}
+          />
+          <KpiCard
+            label="Conversion Rate"
+            description={kpiDescriptions.conversionRate}
+            value={formatPercent(summary.conversionRate)}
+          />
           <KpiCard
             label="CPA"
+            description={kpiDescriptions.cpa}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoneyCompact(total.cpa),
             )}
           />
           <KpiCard
             label="Conversion Value"
+            description={kpiDescriptions.conversionValue}
             values={currencyValues(summary.currencyTotals, (total) =>
               formatMoneyCompact(total.conversion_value),
             )}
           />
           <KpiCard
             label="ROAS"
+            description={kpiDescriptions.roas}
             values={currencyValues(summary.currencyTotals, (total) =>
               total.roas === null ? EMPTY_VALUE : `${formatNumber(total.roas)}×`,
             )}

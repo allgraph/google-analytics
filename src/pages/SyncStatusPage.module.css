@@ -1,0 +1,149 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.header h1 {
+  margin: 0;
+}
+.subtitle {
+  margin: 3px 0 0;
+  color: var(--color-secondary);
+  font-size: 13px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.summaryCard.summaryCard {
+  border-color: var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.summaryCard :global(.ant-card-body) {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px 16px;
+}
+.summaryDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.green {
+  background: #10b981;
+}
+.indigo {
+  background: #6366f1;
+}
+.red {
+  background: #ef4444;
+}
+.amber {
+  background: #f59e0b;
+}
+.summaryLabel {
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+.summaryValue {
+  color: var(--color-heading);
+  font-size: 20px;
+  line-height: 25px;
+}
+
+.panel.panel {
+  border-color: var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.panel :global(.ant-card-body) {
+  padding: 0;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+.toolbarTitle {
+  margin-right: auto;
+}
+.toolbarTitle h2 {
+  margin: 0;
+  color: var(--color-heading);
+  font-size: 15px;
+  font-weight: 600;
+}
+.toolbarTitle p {
+  margin: 3px 0 0;
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+.accountSelect {
+  min-width: 230px;
+}
+.statusSelect {
+  min-width: 155px;
+}
+.tabs :global(.ant-tabs-nav) {
+  margin: 0;
+  padding: 0 16px;
+}
+.tabs :global(.ant-tabs-content-holder) {
+  min-width: 0;
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.account {
+  color: var(--color-heading);
+  font-weight: 500;
+}
+.error {
+  max-width: 420px;
+  color: #b42318;
+  white-space: normal;
+}
+.jobId {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+  }
+  .summary {
+    grid-template-columns: 1fr;
+  }
+  .toolbar {
+    align-items: stretch;
+  }
+  .toolbarTitle {
+    width: 100%;
+  }
+  .accountSelect,
+  .statusSelect {
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+}

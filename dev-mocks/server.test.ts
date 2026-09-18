@@ -62,6 +62,29 @@ afterEach(async () => {
 })
 
 describe('local Google Ads fixtures', () => {
+  it('keeps the selected backend role through login and /auth/me', async () => {
+    const base = await start('full')
+    const loginResponse = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tenant_id: '00000000-0000-4001-8000-000000000001',
+        email: 'marketer@local.mock',
+        password: 'local-mock-only',
+      }),
+    })
+    const session = (await loginResponse.json()) as {
+      data: { access_token: string; role: string }
+    }
+    expect(session.data.role).toBe('marketer')
+
+    const meResponse = await fetch(`${base}/api/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${session.data.access_token}` },
+    })
+    const me = (await meResponse.json()) as { data: { role: string } }
+    expect(me.data.role).toBe('marketer')
+  })
+
   it('passes non-API routes through to Vite', async () => {
     const base = await start('full')
     const response = await fetch(base)

@@ -20,8 +20,8 @@ const roles: RoleCode[] = [
 ]
 
 describe('rolePolicies', () => {
-  it('отключает multi-role UI на первом этапе', () => {
-    expect(multiRoleUiEnabled).toBe(false)
+  it('включает ролевой UI для аналитика', () => {
+    expect(multiRoleUiEnabled).toBe(true)
   })
 
   it('описывает все семь ролей', () => {
@@ -31,7 +31,19 @@ describe('rolePolicies', () => {
   it.each([
     ['owner', sections],
     ['manager', []],
-    ['marketer', []],
+    [
+      'marketer',
+      [
+        'dashboard',
+        'campaigns',
+        'adGroups',
+        'ads',
+        'keywords',
+        'searchTerms',
+        'geography',
+        'devices',
+      ],
+    ],
     ['operator', []],
     ['accountant', []],
     ['client', []],
@@ -49,7 +61,7 @@ describe('rolePolicies', () => {
     ['operator', ['money']],
     ['accountant', ['advertising']],
     ['client', ['staff']],
-    ['technical_admin', []],
+    ['technical_admin', ['recordings', 'transcripts']],
   ] as const)('%s получает согласованное маскирование полей', (role, hidden) => {
     for (const field of ['money', 'advertising', 'staff', 'recordings', 'transcripts'] as const) {
       expect(isFieldHidden(role, field)).toBe(hidden.includes(field as never))
@@ -59,7 +71,7 @@ describe('rolePolicies', () => {
   it.each([
     ['owner', '/dashboard'],
     ['manager', '/access-denied'],
-    ['marketer', '/access-denied'],
+    ['marketer', '/dashboard'],
     ['operator', '/access-denied'],
     ['accountant', '/access-denied'],
     ['client', '/access-denied'],

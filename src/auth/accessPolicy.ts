@@ -22,15 +22,25 @@ export interface RolePolicy {
   hiddenFields: readonly HiddenFieldGroup[]
 }
 
-export const multiRoleUiEnabled = false
+export const multiRoleUiEnabled = true
 
 const noSections: readonly Section[] = []
+const analyticsSections: readonly Section[] = [
+  'dashboard',
+  'campaigns',
+  'adGroups',
+  'ads',
+  'keywords',
+  'searchTerms',
+  'geography',
+  'devices',
+]
 
 /**
- * Новый первый этап работает только в административном режиме. Старые коды ролей остаются в
- * API-типах, чтобы не ломать действующую авторизацию и позже вернуть multi-role UI. Пока backend
- * не ввёл отдельный `administrator`, его эквивалентами являются `owner` и `technical_admin`.
- * Эта политика управляет только интерфейсом и не заменяет проверки доступа на backend.
+ * В Google Ads интерфейсе `marketer` соответствует пользовательской роли «Аналитик»: ему
+ * доступны отчётные разделы, но недоступны управление аккаунтами, синхронизацией и настройки.
+ * Остальные неадминистративные роли пока не включены в этот этап. Эта политика управляет только
+ * интерфейсом и не заменяет проверки доступа на backend.
  */
 export const rolePolicies: Record<RoleCode, RolePolicy> = {
   owner: {
@@ -42,7 +52,7 @@ export const rolePolicies: Record<RoleCode, RolePolicy> = {
     hiddenFields: [],
   },
   marketer: {
-    sections: noSections,
+    sections: analyticsSections,
     hiddenFields: ['money'],
   },
   operator: {
@@ -59,7 +69,7 @@ export const rolePolicies: Record<RoleCode, RolePolicy> = {
   },
   technical_admin: {
     sections,
-    hiddenFields: [],
+    hiddenFields: ['recordings', 'transcripts'],
   },
 }
 

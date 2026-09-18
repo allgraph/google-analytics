@@ -5,6 +5,7 @@ import type {
   AnalyticsOverviewDto,
   GoogleAdsDimensionDto,
   GoogleAdsEntityDto,
+  RoleCode,
 } from '../src/api/types/index.js'
 import {
   createMockDatabase,
@@ -21,6 +22,17 @@ const ACCESS_TOKEN = 'local-mock-access-token'
 const REFRESH_TOKEN = 'local-mock-refresh-token'
 const MOCK_EMAIL = 'administrator@local.mock'
 const MOCK_PASSWORD = 'local-mock-only'
+
+const mockRolesByEmail: Readonly<Record<string, RoleCode>> = {
+  [MOCK_EMAIL]: 'owner',
+  'owner@local.mock': 'owner',
+  'manager@local.mock': 'manager',
+  'marketer@local.mock': 'marketer',
+  'operator@local.mock': 'operator',
+  'accountant@local.mock': 'accountant',
+  'client@local.mock': 'client',
+  'technical-admin@local.mock': 'technical_admin',
+}
 
 interface MockResponse {
   status?: number
@@ -630,6 +642,7 @@ function createXlsx(rows: Array<Record<string, string | number>>): Buffer {
 
 export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
   const db = createMockDatabase(anchor)
+  let activeRole: RoleCode = 'owner'
   if (scenario === 'empty') {
     db.accounts = []
     db.campaigns = []
@@ -666,19 +679,18 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
 
     if (path === '/auth/login' && method === 'POST') {
       const body = await requestBody(req)
-      if (
-        body.email !== MOCK_EMAIL ||
-        body.password !== MOCK_PASSWORD ||
-        body.tenant_id !== db.tenantId
-      )
+      const requestedRole =
+        typeof body.email === 'string' ? mockRolesByEmail[body.email] : undefined
+      if (!requestedRole || body.password !== MOCK_PASSWORD || body.tenant_id !== db.tenantId)
         return jsonError(401, 'AUTHENTICATION_FAILED', 'authentication failed')
+      activeRole = requestedRole
       const expires = new Date(Date.now() + 3_600_000).toISOString()
       return {
         body: {
           data: {
             user_id: db.userId,
             tenant_id: db.tenantId,
-            role: 'owner',
+            role: activeRole,
             token_type: 'Bearer',
             access_token: ACCESS_TOKEN,
             access_expires_at: expires,
@@ -694,7 +706,7 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
           data: {
             user_id: db.userId,
             tenant_id: db.tenantId,
-            role: 'owner',
+            role: activeRole,
             token_type: 'Bearer',
             access_token: ACCESS_TOKEN,
             access_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
@@ -714,7 +726,7 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
             user_id: db.userId,
             tenant_id: db.tenantId,
             membership_id: db.membershipId,
-            role: 'owner',
+            role: activeRole,
             site_ids: null,
             project_ids: null,
             issued_at: new Date().toISOString(),

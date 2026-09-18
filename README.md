@@ -24,7 +24,7 @@ npm run dev:mock # локальный Vite mock API, только 127.0.0.1
 npm run dev:api  # настоящий DEV API через локальный proxy
 ```
 
-Mock-вход: `administrator@local.mock` / `local-mock-only`. Сценарий задаётся серверной переменной `MOCK_SCENARIO` в `.env.mock.local`: `full`, `empty`, `oauth-expired`, `sync-error`, `rate-limit` или `server-error`. После изменения требуется перезапуск.
+Mock-вход владельца: `administrator@local.mock` / `local-mock-only`. Для проверки ролей доступны адреса `owner@local.mock`, `manager@local.mock`, `marketer@local.mock`, `operator@local.mock`, `accountant@local.mock`, `client@local.mock` и `technical-admin@local.mock` с тем же паролем. Сценарий задаётся серверной переменной `MOCK_SCENARIO` в `.env.mock.local`: `full`, `empty`, `oauth-expired`, `sync-error`, `rate-limit` или `server-error`. После изменения требуется перезапуск.
 
 Локальный mock API существует только в Vite dev server. Любая сборка требует `VITE_API_MODE=real`, после чего `dist` автоматически проверяется на отсутствие mock fixtures, токенов и контрольного sentinel. DEV и production никогда не переходят на моки при пустом ответе или ошибке API.
 

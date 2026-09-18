@@ -53,6 +53,9 @@ const GeographyPage = lazy(() =>
 const DevicesPage = lazy(() =>
   import('./pages/GoogleAdsDimensionsPage').then(({ DevicesPage }) => ({ default: DevicesPage })),
 )
+const SyncStatusPage = lazy(() =>
+  import('./pages/SyncStatusPage').then(({ SyncStatusPage }) => ({ default: SyncStatusPage })),
+)
 
 function LazyRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
@@ -64,7 +67,6 @@ function AuthorizedIndex() {
 }
 
 const placeholderRoutes: ReadonlyArray<{ section: Section; path: string; title: string }> = [
-  { section: 'syncStatus', path: appRoutes.syncStatus, title: 'Sync / System Status' },
   { section: 'settings', path: appRoutes.settings, title: 'Settings' },
 ]
 
@@ -173,6 +175,16 @@ export default function App() {
                 element={
                   <LazyRoute>
                     <DevicesPage />
+                  </LazyRoute>
+                }
+              />
+            </Route>
+            <Route element={<SectionRoute section="syncStatus" />}>
+              <Route
+                path={appRoutes.syncStatus}
+                element={
+                  <LazyRoute>
+                    <SyncStatusPage />
                   </LazyRoute>
                 }
               />

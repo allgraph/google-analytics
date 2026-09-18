@@ -1,4 +1,4 @@
-import { Breadcrumb, Button, Card, Tooltip } from 'antd'
+import { Breadcrumb, Button, Card, Empty, Tooltip } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { SortOrder as TableSortOrder } from 'antd/es/table/interface'
 import { LockKeyhole, Settings2 } from 'lucide-react'
@@ -14,6 +14,7 @@ import type {
   ListEnvelope,
 } from '../api/types'
 import { GoogleAdsAccountPicker } from '../components/GoogleAdsAccountPicker'
+import { ApiErrorState } from '../components/ApiErrorState'
 import { ColumnSettings, DataTable, ExportButton, FilterBar, ValueCell } from '../components/list'
 import { useColumnPreferences } from '../lib/columnPreferences'
 import { formatMoney, formatNumber, formatPercent } from '../lib/format'
@@ -356,6 +357,48 @@ export function GoogleAdsEntitiesPage({ kind }: { kind: PageKind }) {
     />
   )
 
+  const table = () => {
+    if (accounts.isPending) return <Card loading />
+    if (accounts.isError) {
+      return (
+        <div className={hierarchyStyles.state}>
+          <ApiErrorState error={accounts.error} />
+          <Button onClick={() => void accounts.refetch()}>Повторить</Button>
+        </div>
+      )
+    }
+    if (!accountRows.length) return <Empty description="Google Ads аккаунты ещё не добавлены" />
+    if (!selectedAccountIds.length) return <Empty description="Выберите Google Ads аккаунты" />
+
+    if (kind === 'keywords') {
+      return (
+        <EntityTable
+          query={keywords}
+          columns={allColumns as TableColumnsType<GoogleAdsKeyword>}
+          filters={filters}
+          visibleKeys={preferences.visibleKeys}
+          onRowClick={(row) =>
+            navigate({
+              pathname: appRoutes.searchTerms,
+              search: entityNavigationSearch(location.search, { keyword: row.keyword_id }, [
+                'search_term',
+              ]),
+            })
+          }
+        />
+      )
+    }
+
+    return (
+      <EntityTable
+        query={searchTerms}
+        columns={allColumns as TableColumnsType<GoogleAdsSearchTerm>}
+        filters={filters}
+        visibleKeys={preferences.visibleKeys}
+      />
+    )
+  }
+
   return (
     <div className={pageStyles.page}>
       <header className={styles.header}>
@@ -456,29 +499,7 @@ export function GoogleAdsEntitiesPage({ kind }: { kind: PageKind }) {
       />
       <Card className={styles.card} variant="outlined">
         <div className={styles.toolbar}>{filterBar}</div>
-        {kind === 'keywords' ? (
-          <EntityTable
-            query={keywords}
-            columns={allColumns as TableColumnsType<GoogleAdsKeyword>}
-            filters={filters}
-            visibleKeys={preferences.visibleKeys}
-            onRowClick={(row) =>
-              navigate({
-                pathname: appRoutes.searchTerms,
-                search: entityNavigationSearch(location.search, { keyword: row.keyword_id }, [
-                  'search_term',
-                ]),
-              })
-            }
-          />
-        ) : (
-          <EntityTable
-            query={searchTerms}
-            columns={allColumns as TableColumnsType<GoogleAdsSearchTerm>}
-            filters={filters}
-            visibleKeys={preferences.visibleKeys}
-          />
-        )}
+        {table()}
       </Card>
       <ColumnSettings
         open={settingsOpen}

@@ -4,6 +4,7 @@ import type { SorterResult } from 'antd/es/table/interface'
 import { useMemo, useState } from 'react'
 import { useAnalyticsBreakdownQueries, useAnalyticsBreakdownQuery } from '../api/hooks'
 import type {
+  AnalyticsBreakdownQuery,
   AnalyticsMetricTotal,
   AnalyticsOverviewQuery,
   AnalyticsOverviewRow,
@@ -54,8 +55,8 @@ const chartDefinitions: Array<{ metric: DashboardChartMetric; title: string }> =
   { metric: 'clicks', title: 'Клики по дням' },
 ]
 
-function tableSortOrder(sort: SortState, field: SortField) {
-  if (sort.field !== field) return null
+function tableSortOrder(sort: SortState | null, field: SortField) {
+  if (!sort || sort.field !== field) return null
   return sort.order === 'asc' ? ('ascend' as const) : ('descend' as const)
 }
 
@@ -83,8 +84,8 @@ function AccountComparisonTable({
 }: {
   query: ReturnType<typeof useAnalyticsBreakdownQuery>
   totals: AnalyticsMetricTotal[]
-  sort: SortState
-  onSortChange: (sort: SortState) => void
+  sort: SortState | null
+  onSortChange: (sort: SortState | null) => void
 }) {
   const rows = useMemo(
     () => query.data?.data.rows.filter(isAccountBreakdownRow) ?? [],
@@ -179,7 +180,10 @@ function AccountComparisonTable({
       Array.isArray(sorter) ? sorter[0] : sorter
     ) as SorterResult<AnalyticsOverviewRow>
     const field = current.columnKey as SortField | undefined
-    if (!field || !current.order) return
+    if (!field || !current.order) {
+      onSortChange(null)
+      return
+    }
     onSortChange({ field, order: current.order === 'ascend' ? 'asc' : 'desc' })
   }
 
@@ -364,12 +368,18 @@ function DailyChart({ title, series }: { title: string; series: DashboardChartSe
 }
 
 export function DashboardInsights({ query, accounts, totals }: DashboardInsightsProps) {
-  const [sort, setSort] = useState<SortState>({ field: 'spend', order: 'desc' })
+  const [sort, setSort] = useState<SortState | null>(null)
   const [chartMode, setChartMode] = useState<ChartMode>('aggregate')
   const effectiveMode = accounts.length > 1 ? chartMode : 'aggregate'
 
-  const tableParams = useMemo(
-    () => ({ ...query, group_by: 'account' as const, page: 1, per_page: 100, ...sort }),
+  const tableParams = useMemo<AnalyticsBreakdownQuery>(
+    () => ({
+      ...query,
+      group_by: 'account',
+      page: 1,
+      per_page: 100,
+      ...(sort ? { sort: sort.field, order: sort.order } : {}),
+    }),
     [query, sort],
   )
   const dailyParams = useMemo(

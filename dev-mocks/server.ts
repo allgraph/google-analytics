@@ -640,16 +640,33 @@ export function createMockHandler(scenario: MockScenario, anchor = new Date()) {
     db.dailyMetrics = []
     db.syncJobs = []
   }
-  if (scenario === 'oauth-expired')
+  if (scenario === 'oauth-expired') {
     db.accounts.forEach((account) => {
       account.connection_status = 'disconnected'
+      account.last_sync_status = 'failed'
       account.last_sync_error = 'LOCAL MOCK: OAuth expired'
     })
-  if (scenario === 'sync-error')
+    db.accounts.forEach((account) => {
+      const latestJob = db.syncJobs.find((job) => job.google_ads_account_id === account.id)
+      if (!latestJob) return
+      latestJob.status = 'failed'
+      latestJob.finished_at = latestJob.finished_at ?? new Date().toISOString()
+      latestJob.error = 'LOCAL MOCK: OAuth refresh token expired'
+    })
+  }
+  if (scenario === 'sync-error') {
     db.accounts.forEach((account) => {
       account.last_sync_status = 'failed'
       account.last_sync_error = 'LOCAL MOCK: synchronization failed'
     })
+    db.accounts.forEach((account) => {
+      const latestJob = db.syncJobs.find((job) => job.google_ads_account_id === account.id)
+      if (!latestJob) return
+      latestJob.status = 'failed'
+      latestJob.finished_at = latestJob.finished_at ?? new Date().toISOString()
+      latestJob.error = 'LOCAL MOCK: Google Ads API quota exhausted (429)'
+    })
+  }
 
   return async (req: IncomingMessage): Promise<MockResponse | undefined> => {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1')

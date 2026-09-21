@@ -306,6 +306,34 @@ describe('local Google Ads fixtures', () => {
     if (connection)
       expect(payload.data.every((account) => account.connection_status === connection)).toBe(true)
     else expect(payload.data.every((account) => account.last_sync_status === 'failed')).toBe(true)
+
+    const syncErrors = (await (
+      await fetch(`${base}/api/v1/google-ads/sync-errors?limit=100`, { headers })
+    ).json()) as BackendListEnvelope<{ error: string }>
+    expect(syncErrors.data).toHaveLength(10)
+  })
+
+  it('starts a new running job when a failed synchronization is retried', async () => {
+    const base = await start('sync-error')
+    const headers = await login(base)
+    const accounts = (await (
+      await fetch(`${base}/api/v1/ads-accounts?limit=100`, { headers })
+    ).json()) as BackendListEnvelope<GoogleAdsAccount>
+    const account = accounts.data[0]
+
+    const retry = await fetch(`${base}/api/v1/google-ads/accounts/${account.id}/sync`, {
+      method: 'POST',
+      headers,
+    })
+    expect(retry.ok).toBe(true)
+
+    const jobs = (await (
+      await fetch(`${base}/api/v1/google-ads/sync-jobs?ads_account_id=${account.id}&limit=100`, {
+        headers,
+      })
+    ).json()) as BackendListEnvelope<GoogleAdsSyncJob>
+    expect(jobs.data[0].status).toBe('running')
+    expect(jobs.data.some((job) => job.status === 'success')).toBe(true)
   })
 
   it('returns explicit authentication and server errors without data fallback', async () => {

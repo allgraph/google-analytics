@@ -129,7 +129,10 @@ export function DataTable<T extends object>({
         filters={filters}
         from={meta?.from ?? 0}
         to={meta?.to ?? 0}
-        hasNextPage={rows.length >= filters.perPage}
+        total={meta?.total}
+        hasNextPage={
+          meta?.total === undefined ? rows.length >= filters.perPage : (meta?.to ?? 0) < meta.total
+        }
       />
     </div>
   )
@@ -186,11 +189,13 @@ function TableFooter({
   filters,
   from,
   to,
+  total,
   hasNextPage,
 }: {
   filters: UrlFiltersApi
   from: number
   to: number
+  total?: number
   hasNextPage: boolean
 }) {
   return (
@@ -207,11 +212,10 @@ function TableFooter({
       </div>
 
       <span className={styles.range}>
-        {/* Общее число записей бэкенд не отдаёт (GA-31): пагинация работает в режиме
-            «есть ли следующая страница». */}
         {to > 0 ? (
           <>
-            Показано {from}–{to} из <PendingData id="lists.total" variant="cell" />
+            Показано {from}–{to}
+            {total === undefined ? '' : ` из ${total}`}
           </>
         ) : (
           'Записей нет'

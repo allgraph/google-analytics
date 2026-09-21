@@ -226,22 +226,32 @@ export function createMockDatabase(anchor = new Date()): MockDatabase {
         : account.last_sync_status === 'running'
           ? 'running'
           : 'success'
-    return [
-      {
-        id: id(90, index + 1),
-        google_ads_account_id: account.id,
-        started_at: new Date(now.getTime() - (index + 1) * 3_600_000).toISOString(),
-        finished_at:
-          status === 'running'
-            ? null
-            : new Date(now.getTime() - (index + 1) * 3_600_000 + 180_000).toISOString(),
-        status,
-        received: status === 'running' ? 420 : 1200 + index * 40,
-        inserted: status === 'failed' ? 0 : 50 + index,
-        updated: status === 'failed' ? 0 : 1150 + index * 39,
-        error: status === 'failed' ? 'LOCAL MOCK: quota exhausted' : null,
-      },
-    ]
+    const current: MockSyncJob = {
+      id: id(90, index + 1),
+      google_ads_account_id: account.id,
+      started_at: new Date(now.getTime() - (index + 1) * 3_600_000).toISOString(),
+      finished_at:
+        status === 'running'
+          ? null
+          : new Date(now.getTime() - (index + 1) * 3_600_000 + 180_000).toISOString(),
+      status,
+      received: status === 'running' ? 420 : 1200 + index * 40,
+      inserted: status === 'failed' ? 0 : 50 + index,
+      updated: status === 'failed' ? 0 : 1150 + index * 39,
+      error: status === 'failed' ? 'LOCAL MOCK: quota exhausted' : null,
+    }
+    const previousSuccess: MockSyncJob = {
+      id: id(91, index + 1),
+      google_ads_account_id: account.id,
+      started_at: new Date(now.getTime() - (index + 25) * 3_600_000).toISOString(),
+      finished_at: new Date(now.getTime() - (index + 25) * 3_600_000 + 180_000).toISOString(),
+      status: 'success',
+      received: 1100 + index * 40,
+      inserted: 40 + index,
+      updated: 1060 + index * 39,
+      error: null,
+    }
+    return [current, previousSuccess]
   })
 
   return {

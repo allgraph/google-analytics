@@ -1,4 +1,4 @@
-import { Button, Card, Select, Tabs } from 'antd'
+import { App as AntdApp, Button, Card, Select, Tabs, Tag } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { RefreshCw } from 'lucide-react'
 import { useMemo } from 'react'
@@ -7,6 +7,7 @@ import {
   useGoogleAdsSyncErrorsQuery,
   useGoogleAdsSyncJobsQuery,
 } from '../api/hooks'
+import { useSyncGoogleAdsAccountMutation } from '../api/mutations'
 import type { GoogleAdsSyncError, GoogleAdsSyncJob } from '../api/types'
 import { DataTable } from '../components/list'
 import { StatusTag } from '../components/StatusTag'
@@ -14,7 +15,15 @@ import { formatDateTime, formatDurationSeconds, formatNumber } from '../lib/form
 import { useUrlFilters } from '../lib/useUrlFilters'
 import pageStyles from './Page.module.css'
 import styles from './SyncStatusPage.module.css'
-import { syncAccountSummary, syncDurationSeconds, syncStatusLabels } from './syncStatus'
+import {
+  classifySyncError,
+  lastSuccessfulSyncByAccount,
+  safeSyncErrorMessage,
+  syncAccountSummary,
+  syncDurationSeconds,
+  syncErrorCategoryLabels,
+  syncStatusLabels,
+} from './syncStatus'
 
 const statusDictionary = {
   running: { label: 'Выполняется', tone: 'indigo' },
@@ -23,6 +32,7 @@ const statusDictionary = {
 } as const
 
 export function SyncStatusPage() {
+  const { message } = AntdApp.useApp()
   const filters = useUrlFilters()
   const accountsQuery = useAdsAccountsQuery()
   const accounts = useMemo(() => accountsQuery.data?.data ?? [], [accountsQuery.data])
@@ -42,8 +52,22 @@ export function SyncStatusPage() {
     per_page: filters.perPage,
     ...(filters.filters.ads_account_id ? { ads_account_id: filters.filters.ads_account_id } : {}),
   })
+  const retrySync = useSyncGoogleAdsAccountMutation()
   const summary = syncAccountSummary(accounts)
   const activeTab = filters.filters.tab === 'errors' ? 'errors' : 'history'
+  const lastSuccessfulSync = useMemo(
+    () => lastSuccessfulSyncByAccount(jobs.data?.data ?? []),
+    [jobs.data],
+  )
+
+  const handleRetry = async (job: GoogleAdsSyncJob) => {
+    try {
+      await retrySync.mutateAsync({ accountId: job.google_ads_account_id })
+      message.success(`Повторная синхронизация ${accountName(job.google_ads_account_id)} запущена`)
+    } catch {
+      // Общий MutationCache показывает нормализованную безопасную ошибку API.
+    }
+  }
 
   const accountName = (id: string) => accountNames.get(id) ?? id
   const jobColumns: TableColumnsType<GoogleAdsSyncJob> = [
@@ -67,6 +91,14 @@ export function SyncStatusPage() {
       render: (value: GoogleAdsSyncJob['status']) => (
         <StatusTag dictionary={statusDictionary} code={value} />
       ),
+    },
+    {
+      key: 'last_successful_sync',
+      title: 'Последняя успешная',
+      render: (_value, row) => {
+        const value = lastSuccessfulSync.get(row.google_ads_account_id)
+        return value ? <span className={styles.mono}>{formatDateTime(value)}</span> : '—'
+      },
     },
     {
       key: 'duration',
@@ -100,8 +132,30 @@ export function SyncStatusPage() {
       title: 'Ошибка',
       dataIndex: 'error',
       render: (value: string | null) => (
-        <span className={value ? styles.error : undefined}>{value || '—'}</span>
+        <span className={value ? styles.error : undefined}>
+          {value ? safeSyncErrorMessage(value) : '—'}
+        </span>
       ),
+    },
+    {
+      key: 'retry',
+      title: 'Действия',
+      width: 130,
+      render: (_value, row) =>
+        row.status === 'failed' ? (
+          <Button
+            size="small"
+            icon={<RefreshCw size={14} />}
+            loading={
+              retrySync.isPending && retrySync.variables?.accountId === row.google_ads_account_id
+            }
+            onClick={() => void handleRetry(row)}
+          >
+            Повторить
+          </Button>
+        ) : (
+          '—'
+        ),
     },
   ]
   const errorColumns: TableColumnsType<GoogleAdsSyncError> = [
@@ -132,7 +186,15 @@ export function SyncStatusPage() {
       key: 'error',
       title: 'Ошибка',
       dataIndex: 'error',
-      render: (value: string) => <span className={styles.error}>{value}</span>,
+      render: (value: string) => {
+        const category = classifySyncError(value)
+        return (
+          <div className={styles.errorDetails}>
+            <Tag>{syncErrorCategoryLabels[category]}</Tag>
+            <span className={styles.error}>{safeSyncErrorMessage(value)}</span>
+          </div>
+        )
+      },
     },
   ]
 

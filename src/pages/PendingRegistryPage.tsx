@@ -56,9 +56,9 @@ export function PendingRegistryPage() {
       <h1 className={styles.title}>Реестр заглушек</h1>
       <Card>
         <Typography.Paragraph type="secondary">
-          {entries.length} активных заглушек по {groups.length} backend-задачам. Источник правды —{' '}
-          <code>src/lib/pendingRegistry.ts</code>; почему элемент ждёт — в{' '}
-          <code>docs/api-integration-delta.md</code>.
+          {entries.length} активных заглушек по {groups.length} backend-задачам нового этапа Google
+          Ads. Ссылки на отменённые задачи старого ТЗ удалены. Источник правды —{' '}
+          <code>src/lib/pendingRegistry.ts</code>.
         </Typography.Paragraph>
         <Table<ListedPendingEntry>
           columns={columns}

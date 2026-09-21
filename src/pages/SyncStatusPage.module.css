@@ -116,6 +116,16 @@
   color: #b42318;
   white-space: normal;
 }
+.errorDetails {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 260px;
+}
+.errorDetails :global(.ant-tag) {
+  flex: 0 0 auto;
+  margin: 0;
+}
 .jobId {
   max-width: 150px;
   overflow: hidden;
